@@ -29,3 +29,4 @@ Commands for managing projects and code.
 - `@mcp-agent-help` - Get help with MCP Hybrid Agent (Project 2)
 - `@framework-help` - Get help with Automation Framework (Project 3)
 
+

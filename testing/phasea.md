@@ -347,7 +347,13 @@ Teach Phase A in this canonical order with exact depth requirements:
 * Reporting concepts (what to report, HTML reports, test metrics, failure analysis)
 * Test runner lifecycle (setup, execution, teardown, fixtures)
 * Separation of concerns (why separate pages, utilities, config, tests)
-* Test data management (how to manage test data, data-driven tests, test data isolation)
+* Test data management (dedicated focus):
+  * Test data strategies (hardcoded values, generated data, external files, database seeding)
+  * Data isolation principles (why tests must not depend on each other, how to achieve isolation)
+  * Setup/teardown concepts (when to create data, when to clean up, test independence)
+  * Test data vs. production data (why they differ, how to keep them separate)
+  * Data-driven testing (how to parameterize tests with different data sets)
+  * Test data builders (how to construct complex test data efficiently)
 * Base classes (why they exist, inheritance patterns, common functionality)
 * Error handling in framework (how to handle failures gracefully, retry logic)
 * Test organization (how to structure tests, test suites, test categories)
@@ -456,6 +462,73 @@ Teach Phase A in this canonical order with exact depth requirements:
 
 ---
 
+### **A10 — Test Design Techniques**
+
+**Scope:** Systematic approaches to designing test cases.
+
+**Depth Level Required:** **Medium–High**
+
+**Goal:** Understand how to design test cases systematically, not randomly.
+
+**Learn deeply:**
+* Equivalence Partitioning (what it is, why it exists, how to identify equivalence classes, examples)
+* Boundary Value Analysis (min, max, just inside/outside boundaries, why boundaries matter, examples)
+* Decision Tables (complex business rules, condition combinations, how to build decision tables, examples)
+* State Transition Testing (state-based systems, valid/invalid transitions, state diagrams, examples)
+* Error Guessing (experience-based testing, common error patterns, when to use it)
+* Use Case Testing (user scenarios, happy paths, alternative flows, exception flows)
+* When to use each technique (which technique fits which scenario)
+* How to combine techniques (using multiple techniques for comprehensive coverage)
+* Real-world examples (applying techniques to actual test scenarios)
+* Test case design process (how to systematically design test cases using these techniques)
+
+**Learn lightly:**
+* Pairwise testing (basic concept, when it's useful)
+* Orthogonal arrays (basic concept only)
+
+**Skip:**
+* All possible test design techniques (focus on core 5–6)
+* Academic definitions only (focus on practical application)
+* Techniques you won't use in automation (focus on applicable ones)
+
+**Focus:** Practical application, when to use which technique, real-world examples, how techniques connect to automation.
+
+---
+
+### **A11 — CI/CD Basics (Conceptual Understanding)**
+
+**Scope:** Understanding CI/CD conceptually before Phase C implementation.
+
+**Depth Level Required:** **Low–Medium**
+
+**Goal:** Understand CI/CD conceptually, not implementation (that's Phase C).
+
+**Learn:**
+* What CI/CD is (Continuous Integration, Continuous Deployment, Continuous Delivery concepts)
+* Why it exists (automation benefits, faster feedback, quality gates, reduced manual work)
+* How it fits in SDLC (automated testing in pipeline, quality gates at each stage)
+* Basic pipeline stages (build → test → deploy, what happens in each stage)
+* What happens when tests fail in CI (pipeline stops, notifications, feedback loop)
+* How CI/CD helps SDET work (automated test execution, regression testing, faster feedback)
+* CI/CD triggers (when pipelines run: on commit, on PR, scheduled, manual)
+* Test execution in CI (how tests run in CI environment, parallel execution, test reports)
+* Quality gates (what they are, how they prevent bad code from reaching production)
+
+**Learn lightly:**
+* Different CI/CD tools (GitHub Actions, Jenkins, GitLab CI, basic awareness only)
+* Pipeline configuration basics (just conceptual, not syntax)
+
+**Skip:**
+* How to write GitHub Actions workflows (Phase C)
+* How to configure Jenkins pipelines (Phase C)
+* Advanced pipeline patterns (Phase C)
+* Docker/containerization in CI (Phase C)
+* Cloud deployment strategies (Phase C)
+
+**Focus:** Conceptual understanding of CI/CD value, how it fits in SDLC, why it matters for SDET work. Implementation details come in Phase C.
+
+---
+
 After completing Phase A, you may help create the **Résumé Blueprint** (preliminary mapping of skills to résumé lines).
 
 ---
@@ -472,10 +545,12 @@ After completing Phase A, you may help create the **Résumé Blueprint** (prelim
 ### **Learn moderately (Medium depth):**
 * SDLC (A1)
 * STLC (A2)
+* Test Design Techniques (A10)
 * Git (A8)
 
 ### **Learn lightly (Low depth):**
 * AI prompting (A7)
+* CI/CD Basics (A11) - Conceptual only
 
 ### **Skip completely (for now):**
 * Old testing models
@@ -483,6 +558,7 @@ After completing Phase A, you may help create the **Résumé Blueprint** (prelim
 * Advanced Git
 * Advanced Playwright features
 * Non-REST protocols
+* CI/CD implementation (Phase C)
 
 ---
 
@@ -512,7 +588,9 @@ Only end Phase A when the user demonstrates **all** Phase A → Phase B Gate cri
 * Understands system flow: UI → API → Backend → DB → API → UI (can trace a request end-to-end).
 * Can explain Playwright core concepts: contexts, pages, locators, auto-wait (not just definitions — understands internals).
 * Can explain API fundamentals: routing, contracts, headers, methods, auth (knows where each fits in the flow).
-* Understands framework reasoning: why POM, why utilities, why config layers.
+* Understands framework reasoning: why POM, why utilities, why config layers, test data management.
+* Can apply test design techniques: Equivalence Partitioning, Boundary Value Analysis, Decision Tables, State Transition (can explain when to use each).
+* Understands CI/CD conceptually: what it is, why it exists, how it fits in SDLC (implementation comes in Phase C).
 * **Can use Git:** create branches, commit, handle basic merge conflicts.
 * **Can debug:** read stack traces, identify root cause of test failures.
 * Can explain AI prompting fundamentals and recognize hallucinations.

@@ -29,3 +29,4 @@ Commands for resume building and interview preparation.
 - `@defend-architecture [project]` - Practice defending project architecture decisions
 - `@explain-framework` - Practice explaining automation framework
 
+
