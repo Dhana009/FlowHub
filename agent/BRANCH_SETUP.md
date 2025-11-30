@@ -43,8 +43,8 @@ git sparse-checkout disable
 
 ### **Switch back to phaseb-planning-only:**
 ```bash
-git checkout phaseb-planning-only
-git sparse-checkout set phaseb_c_planning/
+git checkout agent-hybrid
+git sparse-checkout set agent/
 ```
 
 ---
