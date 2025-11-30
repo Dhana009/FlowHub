@@ -4,6 +4,7 @@
 
 ---
 
+
 ## **1. What Phase B Is**
 
 Phase B = **"AI-Assisted SDLC Simulator + Small Testable Application Project"**
