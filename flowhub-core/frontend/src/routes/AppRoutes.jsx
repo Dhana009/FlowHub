@@ -1,0 +1,71 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import useAuth from '../hooks/useAuth';
+import LoginPage from '../pages/LoginPage';
+import SignUpPage from '../pages/SignUpPage';
+import ForgotPasswordPage from '../pages/ForgotPasswordPage';
+import ItemsPage from '../pages/ItemsPage';
+
+/**
+ * Protected Route Component
+ * 
+ * Wrapper to protect routes that require authentication.
+ * Redirects to login if not authenticated.
+ */
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, isLoading, isInitialized } = useAuth();
+
+  // Still initializing
+  if (!isInitialized || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Not authenticated - redirect to login
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Authenticated - render children
+  return <>{children}</>;
+}
+
+/**
+ * App Routes
+ * 
+ * Defines all routes for the application.
+ * Public routes: login, signup, forgot-password
+ * Protected routes: items (and future flows)
+ */
+export default function AppRoutes() {
+  return (
+    <Routes>
+      {/* Public routes */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignUpPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+      {/* Protected routes */}
+      <Route
+        path="/items"
+        element={
+          <ProtectedRoute>
+            <ItemsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Default redirect */}
+      <Route path="/" element={<Navigate to="/items" replace />} />
+
+      {/* 404 - redirect to login */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+}
+

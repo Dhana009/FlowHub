@@ -17,7 +17,7 @@ You will:
 * Build a small, clean, stable application with:
   * Simple frontend (dynamic UI with semantic locators)
   * Simple backend API (rich logic, not complex architecture)
-  * Small database (SQLite or JSON)
+  * Small database (MongoDB)
 * Ensure it is **testable** by Playwright UI + API tests in Phase C
 
 This is NOT a big system; it is a **micro-product** built for learning + automation.
@@ -44,7 +44,7 @@ That is *real developer work*, not required for QA automation interviews.
 **So we build FlowHub Core (SDET Edition):**
 * 6 automation-rich flows (not 18)
 * Simple monolithic backend (not microservices)
-* SQLite database (not MongoDB + Redis)
+* MongoDB database (not MongoDB + Redis cluster)
 * Local deployment (not multi-region)
 * Focus on testability (not production scale)
 
@@ -93,7 +93,7 @@ A small app with:
 * 1–2 frontend screens (with dynamic UI behaviors)
 * 6 API endpoints (with rich backend logic)
 * Simple backend (but with validation, business rules, error handling)
-* Small database (SQLite with proper schema)
+* Small database (MongoDB with proper schema)
 
 ### **Deliverable 5 — Documentation**
 README.md + Architecture.md + API Documentation + Setup instructions + How to run + How to test manually.
@@ -302,7 +302,35 @@ Not dozens of tables.
 
 Phase B will build exactly **6 automation-rich flows**:
 
-### **Flow 1: Item Creation Flow**
+### **Flow 1: Auth Flow**
+**Components:** JWT + Session + Invalid tokens
+
+**Features:**
+* Login form
+* JWT token generation
+* Session management
+* Token validation
+* Invalid token handling
+* Logout functionality
+
+**Backend Logic:**
+* POST /auth/login
+* Invalid credentials → 401
+* Success → 200 with JWT token
+* Token validation middleware
+* Invalid token → 401
+* Expired token → 401
+
+**Automation Value:**
+* Auth flow testing
+* Token validation testing
+* Session management testing
+* Error handling testing
+* Security testing basics
+
+---
+
+### **Flow 2: Item Creation Flow**
 **Components:** UI + API + DB
 
 **Features:**
@@ -354,7 +382,7 @@ These rules give you **dozens** of API test scenarios:
 
 ---
 
-### **Flow 2: Item List Flow**
+### **Flow 3: Item List Flow**
 **Components:** Dynamic UI + Server-driven logic
 
 **Features:**
@@ -414,7 +442,7 @@ search + filter + sort + page = deep test combinations
 
 ---
 
-### **Flow 3: Item Details Flow**
+### **Flow 4: Item Details Flow**
 **Components:** Modal + Async load + Semantic roles
 
 **Features:**
@@ -438,7 +466,7 @@ search + filter + sort + page = deep test combinations
 
 ---
 
-### **Flow 4: Item Edit Flow**
+### **Flow 5: Item Edit Flow**
 **Components:** State-based rules + Validation
 
 **Features:**
@@ -485,7 +513,7 @@ This gives rich negative testing scenarios:
 
 ---
 
-### **Flow 5: Item Delete Flow**
+### **Flow 6: Item Delete Flow**
 **Components:** Soft delete + Error states
 
 **Features:**
@@ -508,34 +536,6 @@ This gives rich negative testing scenarios:
 * Error state testing
 * State-based logic testing
 * API negative testing
-
----
-
-### **Flow 6: Auth Flow**
-**Components:** JWT + Session + Invalid tokens
-
-**Features:**
-* Login form
-* JWT token generation
-* Session management
-* Token validation
-* Invalid token handling
-* Logout functionality
-
-**Backend Logic:**
-* POST /auth/login
-* Invalid credentials → 401
-* Success → 200 with JWT token
-* Token validation middleware
-* Invalid token → 401
-* Expired token → 401
-
-**Automation Value:**
-* Auth flow testing
-* Token validation testing
-* Session management testing
-* Error handling testing
-* Security testing basics
 
 ---
 
@@ -983,7 +983,7 @@ These topics are NOT expected from a 2.5-year SDET.
 
 **Key Principle:** "Your backend should be small in size but rich in behavior."
 
-**The 6 Flows:** Item Creation, Item List, Item Details, Item Edit, Item Delete, Auth Flow.
+**The 6 Flows:** Auth Flow, Item Creation, Item List, Item Details, Item Edit, Item Delete.
 
 **The Goal:** Build a realistic playground for Phase C automation, not a production SaaS platform.
 
