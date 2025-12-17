@@ -300,8 +300,23 @@ export default function ForgotPasswordForm() {
             type="password"
             label="New Password"
             value={values.newPassword}
-            onChange={(value) => handleChange('newPassword', value)}
-            onBlur={() => handleBlur('newPassword')}
+            onChange={(value) => {
+              handleChange('newPassword', value);
+              // Clear confirmPassword error when newPassword changes
+              setErrors(prev => ({
+                ...prev,
+                newPassword: passwordStrength(value) || undefined,
+                confirmPassword: confirmPassword(values.confirmPassword, value) || undefined
+              }));
+            }}
+            onBlur={() => {
+              handleBlur('newPassword');
+              const newPasswordError = passwordStrength(values.newPassword);
+              setErrors(prev => ({
+                ...prev,
+                newPassword: newPasswordError || undefined
+              }));
+            }}
             error={touched.newPassword ? errors.newPassword : ''}
             dataTestid="forgot-password-new-password"
             showPasswordToggle
@@ -313,8 +328,25 @@ export default function ForgotPasswordForm() {
             type="password"
             label="Confirm New Password"
             value={values.confirmPassword}
-            onChange={(value) => handleChange('confirmPassword', value)}
-            onBlur={() => handleBlur('confirmPassword')}
+            onChange={(value) => {
+              handleChange('confirmPassword', value);
+              // Real-time validation: check if passwords match as user types
+              if (touched.confirmPassword) {
+                const confirmPasswordError = confirmPassword(value, values.newPassword);
+                setErrors(prev => ({
+                  ...prev,
+                  confirmPassword: confirmPasswordError || undefined
+                }));
+              }
+            }}
+            onBlur={() => {
+              handleBlur('confirmPassword');
+              const confirmPasswordError = confirmPassword(values.confirmPassword, values.newPassword);
+              setErrors(prev => ({
+                ...prev,
+                confirmPassword: confirmPasswordError || undefined
+              }));
+            }}
             error={touched.confirmPassword ? errors.confirmPassword : ''}
             dataTestid="forgot-password-confirm-password"
             showPasswordToggle

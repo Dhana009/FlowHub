@@ -17,6 +17,9 @@ const { verifyToken } = require('../middleware/authMiddleware');
 // Login
 router.post('/login', loginRateLimiter, authController.login);
 
+// Refresh token (uses httpOnly cookie, no auth required)
+router.post('/refresh', authController.refreshToken);
+
 // Signup flow
 router.post('/signup/request-otp', otpRateLimiter, authController.requestSignupOTP);
 router.post('/signup/verify-otp', authController.verifySignupOTP);

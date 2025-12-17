@@ -256,8 +256,23 @@ export default function SignUpForm() {
             type="password"
             label="Password"
             value={values.password}
-            onChange={(value) => handleChange('password', value)}
-            onBlur={() => handleBlur('password')}
+            onChange={(value) => {
+              handleChange('password', value);
+              // Clear confirmPassword error when password changes
+              setErrors(prev => ({
+                ...prev,
+                password: passwordStrength(value) || undefined,
+                confirmPassword: confirmPassword(values.confirmPassword, value) || undefined
+              }));
+            }}
+            onBlur={() => {
+              handleBlur('password');
+              const passwordError = passwordStrength(values.password);
+              setErrors(prev => ({
+                ...prev,
+                password: passwordError || undefined
+              }));
+            }}
             error={touched.password ? errors.password : ''}
             dataTestid="signup-password"
             showPasswordToggle
@@ -299,8 +314,25 @@ export default function SignUpForm() {
             type="password"
             label="Confirm Password"
             value={values.confirmPassword}
-            onChange={(value) => handleChange('confirmPassword', value)}
-            onBlur={() => handleBlur('confirmPassword')}
+            onChange={(value) => {
+              handleChange('confirmPassword', value);
+              // Real-time validation: check if passwords match as user types
+              if (touched.confirmPassword) {
+                const confirmPasswordError = confirmPassword(value, values.password);
+                setErrors(prev => ({
+                  ...prev,
+                  confirmPassword: confirmPasswordError || undefined
+                }));
+              }
+            }}
+            onBlur={() => {
+              handleBlur('confirmPassword');
+              const confirmPasswordError = confirmPassword(values.confirmPassword, values.password);
+              setErrors(prev => ({
+                ...prev,
+                confirmPassword: confirmPasswordError || undefined
+              }));
+            }}
             error={touched.confirmPassword ? errors.confirmPassword : ''}
             dataTestid="signup-confirm-password"
             showPasswordToggle

@@ -6,8 +6,9 @@ import api, { setTokenFunctions } from '../services/api';
  * Auth Context
  * 
  * Global state management for authentication.
- * Token stored in memory (React state), NOT localStorage.
- * Refresh token stored in httpOnly cookie (automatically sent).
+ * JWT token stored in memory (React state) - NOT localStorage (per PRD).
+ * Refresh token stored in httpOnly cookie (handled by backend).
+ * On page refresh, system calls /auth/refresh to get new JWT using refresh token cookie.
  */
 
 const AuthContext = createContext(null);
@@ -15,8 +16,19 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  /**
+   * Clear authentication state
+   * Sets all auth data to null
+   * NOTE: Do NOT set isInitialized here - let the caller decide when initialization is complete
+   * This prevents circular dependencies
+   */
+  const clearAuth = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    // DO NOT set isInitialized here - initialization state is managed separately
+  }, []);
 
   /**
    * Refresh token function for API interceptor
@@ -24,18 +36,28 @@ export const AuthProvider = ({ children }) => {
    */
   const refreshToken = useCallback(async () => {
     try {
-      // Note: Refresh token endpoint would be called here
-      // For now, we'll implement a simple refresh mechanism
-      // The refresh token is automatically sent via httpOnly cookie
+      // Call refresh endpoint (refresh token sent automatically via httpOnly cookie)
+      const response = await api.post('/auth/refresh');
       
-      // TODO: Implement refresh endpoint call when backend supports it
-      // For now, return null to trigger login redirect
+      if (response.data?.token) {
+        const newToken = response.data.token;
+        const newUser = response.data.user;
+        
+        // Store in memory only (React state)
+        setToken(newToken);
+        setUser(newUser);
+        
+        return newToken;
+      }
+      
       return null;
     } catch (error) {
       console.error('Token refresh failed:', error);
+      // Clear auth state on refresh failure
+      clearAuth();
       return null;
     }
-  }, []);
+  }, [clearAuth]);
 
   /**
    * Get access token (for API interceptor)
@@ -49,57 +71,94 @@ export const AuthProvider = ({ children }) => {
    */
   const setAccessToken = useCallback((newToken) => {
     setToken(newToken);
-  }, []);
+    if (!newToken) {
+      clearAuth();
+    }
+  }, [clearAuth]);
 
   // Setup API interceptor functions
   useEffect(() => {
-    setTokenFunctions(getAccessToken, setAccessToken, refreshToken);
-  }, [getAccessToken, setAccessToken, refreshToken]);
+    setTokenFunctions(getAccessToken, setAccessToken, refreshToken, clearAuth);
+  }, [getAccessToken, setAccessToken, refreshToken, clearAuth]);
 
   /**
    * Initialize auth state on mount
-   * Try to refresh token using httpOnly cookie
+   * Try to restore session using refresh token cookie
+   * This runs ONCE when component mounts
    */
   useEffect(() => {
-    initializeAuth();
-  }, []);
+    let isMounted = true;
+    let timeoutId = null;
+    
+    const initializeAuth = async () => {
+      try {
+        console.log('🔄 Starting auth initialization...');
+        
+        // Try to get new JWT using refresh token cookie
+        const newToken = await refreshToken();
+        
+        if (!isMounted) {
+          console.log('⚠️ Component unmounted, skipping state update');
+          return;
+        }
+        
+        // Token refresh succeeded - token and user already set by refreshToken()
+        // Mark as initialized
+        if (newToken) {
+          console.log('✅ Auth initialization: Token restored');
+          setIsInitialized(true);
+        } else {
+          // No valid refresh token - clear auth state
+          // IMPORTANT: Must set isInitialized = true even if token is invalid
+          // Otherwise we get stuck in endless loader
+          console.log('⚠️ Auth initialization: No valid token, redirecting to login');
+          setToken(null);
+          setUser(null);
+          setIsInitialized(true);
+        }
+      } catch (error) {
+        if (!isMounted) {
+          console.log('⚠️ Component unmounted during error handling');
+          return;
+        }
+        console.error('❌ Auth initialization failed:', error);
+        // Clear auth state AND mark initialization as complete
+        // This prevents endless loader
+        setToken(null);
+        setUser(null);
+        setIsInitialized(true);
+      }
+    };
 
-  const initializeAuth = async () => {
-    try {
-      // Try to refresh token using httpOnly cookie
-      // For now, we'll start with null state
-      // When refresh endpoint is implemented, call it here
-      
-      // TODO: Call refresh endpoint when backend supports it
-      // const response = await api.post('/auth/refresh');
-      // if (response.data.token) {
-      //   setToken(response.data.token);
-      //   setUser(response.data.user);
-      // }
-      
-      setIsLoading(false);
-      setIsInitialized(true);
-    } catch (error) {
-      console.error('Auth initialization failed:', error);
-      setIsLoading(false);
-      setIsInitialized(true);
-    }
-  };
+    // Start initialization
+    initializeAuth();
+    
+    // Safety timeout: if initialization takes too long, mark as initialized anyway
+    timeoutId = setTimeout(() => {
+      if (isMounted && !isInitialized) {
+        console.warn('⏱️ Auth initialization timeout - forcing completion');
+        setIsInitialized(true);
+      }
+    }, 5000); // 5 second timeout
+    
+    // Cleanup: mark as unmounted if component unmounts
+    return () => {
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, []); // Only run once on mount
 
   /**
    * Login user
-   * 
-   * @param {string} email - User email
-   * @param {string} password - User password
-   * @param {boolean} rememberMe - Whether to remember user
    */
-  const login = async (email, password, rememberMe = false) => {
+  const login = useCallback(async (email, password, rememberMe = false) => {
     try {
       const response = await authService.login(email, password, rememberMe);
       
-      // Store token in memory (React state)
+      // Store JWT token in memory only (React state)
       setToken(response.token);
       setUser(response.user);
+      setIsInitialized(true);
       
       // Refresh token is automatically stored in httpOnly cookie by backend
       
@@ -107,23 +166,23 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       throw error;
     }
-  };
+  }, []);
 
   /**
    * Logout user
    */
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       // Call logout endpoint to clear refresh token cookie
       await authService.logout();
     } catch (error) {
       console.error('Logout error:', error);
+      // Continue with logout even if API call fails
     } finally {
       // Clear state regardless of API call success
-      setToken(null);
-      setUser(null);
+      clearAuth();
     }
-  };
+  }, [clearAuth]);
 
   /**
    * Check if user is authenticated
@@ -133,7 +192,6 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     token,
-    isLoading,
     isInitialized,
     isAuthenticated,
     login,
@@ -149,4 +207,3 @@ export const AuthProvider = ({ children }) => {
 };
 
 export default AuthContext;
-

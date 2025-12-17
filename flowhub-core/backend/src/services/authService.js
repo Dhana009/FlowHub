@@ -7,7 +7,7 @@
 
 const User = require('../models/User');
 const { hashPassword, verifyPassword, validatePasswordStrength } = require('../utils/password');
-const { generateJWT, generateRefreshToken } = require('./tokenService');
+const { generateJWT, generateRefreshToken, verifyRefreshToken } = require('./tokenService');
 const { generateOTP, storeOTP, verifyOTP, consumeOTP, checkOTPRateLimit } = require('./otpService');
 
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -291,12 +291,47 @@ async function incrementFailedAttempts(email) {
   await user.save();
 }
 
+/**
+ * Refresh access token using refresh token
+ * 
+ * @param {string} refreshToken - Refresh token from cookie
+ * @returns {Promise<{token: string, user: object}>}
+ * @throws {Error} - If refresh fails
+ */
+async function refreshAccessToken(refreshToken) {
+  if (!refreshToken) {
+    throw new Error('Refresh token is required');
+  }
+
+  // Verify refresh token
+  const decoded = verifyRefreshToken(refreshToken);
+  
+  // Find user
+  const user = await User.findById(decoded.sub);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Generate new access token
+  const token = generateJWT(user._id.toString(), user.email);
+
+  // Return user without passwordHash
+  const userObj = user.toObject();
+  delete userObj.passwordHash;
+
+  return {
+    token,
+    user: userObj
+  };
+}
+
 module.exports = {
   login,
   signup,
   requestOTP,
   verifyOTP: verifyOTPForAuth,
   resetPassword,
+  refreshAccessToken,
   checkAccountLockout,
   incrementFailedAttempts
 };

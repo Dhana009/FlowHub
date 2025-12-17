@@ -4,6 +4,36 @@ import LoginPage from '../pages/LoginPage';
 import SignUpPage from '../pages/SignUpPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
 import ItemsPage from '../pages/ItemsPage';
+import CreateItemPage from '../pages/CreateItemPage';
+
+/**
+ * Root Route Component
+ * 
+ * Handles the default "/" route.
+ * Waits for auth initialization, then redirects based on auth state.
+ */
+function RootRoute() {
+  const { isAuthenticated, isLoading, isInitialized } = useAuth();
+
+  // Still initializing - show loader
+  if (!isInitialized || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Initialization complete - redirect based on auth state
+  if (isAuthenticated) {
+    return <Navigate to="/items" replace />;
+  } else {
+    return <Navigate to="/login" replace />;
+  }
+}
 
 /**
  * Protected Route Component
@@ -59,9 +89,17 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/items/create"
+        element={
+          <ProtectedRoute>
+            <CreateItemPage />
+          </ProtectedRoute>
+        }
+      />
 
-      {/* Default redirect */}
-      <Route path="/" element={<Navigate to="/items" replace />} />
+      {/* Default redirect - check auth first before redirecting */}
+      <Route path="/" element={<RootRoute />} />
 
       {/* 404 - redirect to login */}
       <Route path="*" element={<Navigate to="/login" replace />} />

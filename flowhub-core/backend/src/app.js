@@ -10,7 +10,9 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
 const authRoutes = require('./routes/authRoutes');
+const itemRoutes = require('./routes/itemRoutes');
 const errorHandler = require('./middleware/errorHandler');
+const path = require('path');
 
 const app = express();
 
@@ -44,6 +46,10 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/items', itemRoutes);
+
+// Static file serving for uploaded files
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // 404 handler for undefined routes
 app.use((req, res) => {

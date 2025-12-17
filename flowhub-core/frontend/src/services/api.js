@@ -38,11 +38,13 @@ const processQueue = (error, token = null) => {
 let getAccessToken = () => null;
 let setAccessToken = null;
 let refreshTokenFunction = null;
+let clearAuthFunction = null;
 
-export const setTokenFunctions = (getToken, setToken, refreshFn) => {
+export const setTokenFunctions = (getToken, setToken, refreshFn, clearAuthFn) => {
   getAccessToken = getToken;
   setAccessToken = setToken;
   refreshTokenFunction = refreshFn;
+  clearAuthFunction = clearAuthFn;
 };
 
 // Request interceptor - add access token to headers
@@ -93,13 +95,21 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return api(originalRequest);
         } else {
-          // Refresh failed - redirect to login
-          processQueue(new Error('Token refresh failed'), null);
+          // Refresh failed (no valid refresh token) - clear auth and redirect
+          processQueue(new Error('Session expired'), null);
+          if (clearAuthFunction) {
+            clearAuthFunction();
+          }
+          // Redirect to login
           window.location.href = '/login';
-          return Promise.reject(error);
+          return Promise.reject(new Error('Session expired'));
         }
       } catch (refreshError) {
         processQueue(refreshError, null);
+        // Clear auth state on any refresh error
+        if (clearAuthFunction) {
+          clearAuthFunction();
+        }
         // Redirect to login on refresh failure
         window.location.href = '/login';
         return Promise.reject(refreshError);

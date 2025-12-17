@@ -364,6 +364,45 @@ async function resetPassword(req, res, next) {
 }
 
 /**
+ * Refresh token endpoint handler
+ * POST /auth/refresh
+ */
+async function refreshToken(req, res, next) {
+  try {
+    // Get refresh token from httpOnly cookie
+    const refreshToken = req.cookies?.refreshToken;
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        error: 'Refresh token not found',
+        statusCode: 401
+      });
+    }
+
+    // Business logic
+    const result = await authService.refreshAccessToken(refreshToken);
+
+    // Return new access token
+    res.status(200).json({
+      token: result.token,
+      user: result.user
+    });
+  } catch (error) {
+    // Clear invalid refresh token cookie
+    clearRefreshTokenCookie(res);
+    
+    if (error.message.includes('expired') || error.message.includes('invalid')) {
+      return res.status(401).json({
+        error: 'Refresh token expired or invalid',
+        statusCode: 401
+      });
+    }
+    
+    next(error);
+  }
+}
+
+/**
  * Logout endpoint handler
  * POST /auth/logout
  */
@@ -382,6 +421,7 @@ async function logout(req, res, next) {
 
 module.exports = {
   login,
+  refreshToken,
   requestSignupOTP,
   verifySignupOTP,
   signup,
