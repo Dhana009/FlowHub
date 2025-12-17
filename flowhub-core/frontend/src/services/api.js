@@ -68,7 +68,8 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     // If 401 and not already retried
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // CRITICAL: Do NOT attempt to refresh if the failed request WAS the refresh request itself
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes('/auth/refresh')) {
       if (isRefreshing) {
         // Queue the request while refresh is in progress
         return new Promise((resolve, reject) => {

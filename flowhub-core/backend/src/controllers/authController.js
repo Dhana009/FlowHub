@@ -24,9 +24,10 @@ function setRefreshTokenCookie(res, refreshToken, rememberMe = false) {
   
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    maxAge: maxAge
+    secure: true, // Required for cross-site cookies
+    sameSite: isProduction ? 'none' : 'lax', 
+    maxAge: maxAge,
+    path: '/'
   });
 }
 
