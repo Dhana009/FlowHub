@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import useAuth from '../hooks/useAuth';
 import { getItems, deleteItem, activateItem } from '../services/itemService';
 import Button from '../components/common/Button';
 import ErrorMessage from '../components/common/ErrorMessage';
 import Input from '../components/common/Input';
 import ItemDetailsModal from '../components/items/ItemDetailsModal';
 import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
+import Card from '../components/ui/Card';
 
 /**
  * Items Page - Flow 3 Implementation
@@ -15,7 +15,6 @@ import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModa
  * Implements auto-refresh every 30 seconds.
  */
 export default function ItemsPage() {
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -278,11 +277,6 @@ export default function ItemsPage() {
     return () => clearTimeout(timeout);
   }, [search]);
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login', { replace: true });
-  };
-
   // Toast notification state (Flow 6)
   const [toasts, setToasts] = useState([]);
   
@@ -443,48 +437,14 @@ export default function ItemsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm" role="banner" aria-label="Items page">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-                <span className="text-white text-sm font-bold">F</span>
-              </div>
-              <h1 className="text-xl font-semibold text-gray-900">FlowHub</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button
-                onClick={() => navigate('/items/create')}
-                variant="primary"
-                dataTestid="create-item-button"
-              >
-                Create Item
-              </Button>
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.firstName} {user?.lastName}
-                </p>
-                <p className="text-xs text-gray-500">{user?.email}</p>
-              </div>
-              <Button
-                onClick={handleLogout}
-                variant="secondary"
-                dataTestid="logout-button"
-              >
-                Sign out
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div>
+      {/* Page Title */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-semibold text-gray-900">Items</h2>
+        <p className="mt-1 text-sm text-gray-600">Manage and view all your items</p>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          {/* Page Title */}
-          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Items</h2>
+      <Card>
 
           {/* Search and Filters */}
           <div className="mb-6 space-y-4">
@@ -842,8 +802,7 @@ export default function ItemsPage() {
               )}
             </>
           )}
-        </div>
-      </main>
+      </Card>
 
       {/* Item Details Modal (Flow 4) */}
       <ItemDetailsModal

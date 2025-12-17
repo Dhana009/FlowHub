@@ -1,8 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
+import AppLayout from '../layouts/AppLayout';
+import AuthLayout from '../layouts/AuthLayout';
 import LoginPage from '../pages/LoginPage';
 import SignUpPage from '../pages/SignUpPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
+import DashboardPage from '../pages/DashboardPage';
 import ItemsPage from '../pages/ItemsPage';
 import CreateItemPage from '../pages/CreateItemPage';
 import EditItemPage from '../pages/EditItemPage';
@@ -30,7 +33,7 @@ function RootRoute() {
 
   // Initialization complete - redirect based on auth state
   if (isAuthenticated) {
-    return <Navigate to="/items" replace />;
+    return <Navigate to="/dashboard" replace />;
   } else {
     return <Navigate to="/login" replace />;
   }
@@ -76,17 +79,50 @@ function ProtectedRoute({ children }) {
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignUpPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      {/* Public routes - Auth Layout */}
+      <Route
+        path="/login"
+        element={
+          <AuthLayout>
+            <LoginPage />
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <AuthLayout>
+            <SignUpPage />
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <AuthLayout>
+            <ForgotPasswordPage />
+          </AuthLayout>
+        }
+      />
 
-      {/* Protected routes */}
+      {/* Protected routes - App Layout */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <AppLayout title="Dashboard">
+              <DashboardPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/items"
         element={
           <ProtectedRoute>
-            <ItemsPage />
+            <AppLayout title="Items">
+              <ItemsPage />
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -94,7 +130,9 @@ export default function AppRoutes() {
         path="/items/create"
         element={
           <ProtectedRoute>
-            <CreateItemPage />
+            <AppLayout title="Create Item">
+              <CreateItemPage />
+            </AppLayout>
           </ProtectedRoute>
         }
       />
@@ -102,7 +140,9 @@ export default function AppRoutes() {
         path="/items/:id/edit"
         element={
           <ProtectedRoute>
-            <EditItemPage />
+            <AppLayout title="Edit Item">
+              <EditItemPage />
+            </AppLayout>
           </ProtectedRoute>
         }
       />

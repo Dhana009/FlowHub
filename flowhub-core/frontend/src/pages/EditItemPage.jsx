@@ -12,6 +12,8 @@ import { getItem } from '../services/itemService';
 import Button from '../components/common/Button';
 import ErrorMessage from '../components/common/ErrorMessage';
 import ItemEditForm from '../components/items/ItemEditForm';
+import Card from '../components/ui/Card';
+import Skeleton from '../components/ui/Skeleton';
 
 export default function EditItemPage() {
   const { id } = useParams();
@@ -45,59 +47,63 @@ export default function EditItemPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading item...</p>
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6">
+          <Skeleton height="h-8" width="w-64" className="mb-2" />
+          <Skeleton height="h-4" width="w-96" />
         </div>
+        <Card padding="lg">
+          <div className="space-y-4">
+            <Skeleton height="h-10" />
+            <Skeleton height="h-10" />
+            <Skeleton height="h-32" />
+            <Skeleton height="h-10" />
+          </div>
+        </Card>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-lg shadow-md p-8">
-            <ErrorMessage message={error} />
-            <div className="mt-4">
-              <Button onClick={handleCancel}>Back to Items</Button>
-            </div>
+      <div className="max-w-4xl mx-auto">
+        <Card padding="lg">
+          <ErrorMessage message={error} />
+          <div className="mt-4">
+            <Button onClick={handleCancel}>Back to Items</Button>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
 
   if (!item) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-lg shadow-md p-8">
-            <p className="text-gray-600">Item not found</p>
-            <div className="mt-4">
-              <Button onClick={handleCancel}>Back to Items</Button>
-            </div>
+      <div className="max-w-4xl mx-auto">
+        <Card padding="lg">
+          <p className="text-gray-600">Item not found</p>
+          <div className="mt-4">
+            <Button onClick={handleCancel}>Back to Items</Button>
           </div>
-        </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Edit Item: {item.name}
-          </h1>
-          <p className="text-gray-600 mb-8">
-            Update item details below. All required fields are marked with an asterisk (*).
-          </p>
-          
-          <ItemEditForm item={item} />
-        </div>
+    <div className="max-w-4xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Edit Item: {item.name}
+        </h1>
+        <p className="text-gray-600">
+          Update item details below. All required fields are marked with an asterisk (*).
+        </p>
       </div>
+      
+      <Card padding="lg">
+        <ItemEditForm item={item} />
+      </Card>
     </div>
   );
 }
