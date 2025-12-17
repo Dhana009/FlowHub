@@ -248,9 +248,10 @@ function buildSortObject(sortBy, sortOrder) {
  * @param {array} filters.sort_order - Sort orders array
  * @param {number} filters.page - Page number
  * @param {number} filters.limit - Items per page
+ * @param {string} userId - User ID (required for data isolation - users can only see their own items)
  * @returns {Promise<object>} Items and pagination info
  */
-async function getItems(filters = {}) {
+async function getItems(filters = {}, userId = null) {
   const {
     search,
     status,
@@ -263,6 +264,12 @@ async function getItems(filters = {}) {
 
   // Build query
   const query = {};
+
+  // CRITICAL: Filter by user ownership for data isolation
+  // Users can only see items they created
+  if (userId) {
+    query.created_by = userId;
+  }
 
   // Status filter
   if (status === 'active') {

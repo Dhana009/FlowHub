@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../../contexts/ToastContext';
 import useForm from '../../hooks/useForm';
 import {
   itemName,
@@ -35,11 +36,22 @@ import FileUpload from './FileUpload';
  */
 export default function ItemEditForm({ item }) {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileError, setFileError] = useState('');
-  const [currentVersion, setCurrentVersion] = useState(item?.version || 1);
+  const [currentVersion, setCurrentVersion] = useState(() => {
+    const version = item?.version;
+    // Ensure version is a positive integer
+    if (version != null && version !== undefined) {
+      const num = Number(version);
+      if (!isNaN(num) && num > 0 && Number.isInteger(num)) {
+        return num;
+      }
+    }
+    return 1;
+  });
 
   // Initialize form values from existing item
   const getInitialValues = () => {
@@ -109,7 +121,18 @@ export default function ItemEditForm({ item }) {
     if (item) {
       const initialValues = getInitialValues();
       setFormValues(initialValues);
-      setCurrentVersion(item.version || 1);
+      // Ensure version is a positive integer
+      const version = item?.version;
+      if (version != null && version !== undefined) {
+        const num = Number(version);
+        if (!isNaN(num) && num > 0 && Number.isInteger(num)) {
+          setCurrentVersion(num);
+        } else {
+          setCurrentVersion(1);
+        }
+      } else {
+        setCurrentVersion(1);
+      }
     }
   }, [item]);
 
@@ -239,12 +262,30 @@ export default function ItemEditForm({ item }) {
         itemData.embed_url = values.embed_url.trim();
       }
 
+      // Ensure version is a valid positive integer before sending
+      // Use parseInt to ensure clean integer conversion
+      let versionToSend = 1;
+      if (currentVersion != null && currentVersion !== undefined) {
+        const parsed = parseInt(currentVersion, 10);
+        if (!isNaN(parsed) && Number.isFinite(parsed) && parsed > 0 && Number.isInteger(parsed)) {
+          versionToSend = parsed;
+        }
+      }
+      
+      // Debug logging
+      console.log('Sending version to API:', {
+        currentVersion,
+        versionToSend,
+        type: typeof versionToSend
+      });
+      
       // Update item with version for optimistic locking
-      const result = await updateItem(item._id, itemData, selectedFile, currentVersion);
+      const result = await updateItem(item._id, itemData, selectedFile, versionToSend);
       
       // Check if response matches PRD success format
       if (result.status === 'success' && result.data) {
-        // Success - redirect to items list
+        // Success - show toast and redirect to items list
+        showToast('Item updated successfully!', 'success');
         navigate('/items', { 
           replace: true,
           state: { message: 'Item updated successfully!' }
@@ -305,9 +346,14 @@ export default function ItemEditForm({ item }) {
       } else if (error.statusCode === 500) {
         errorMessage = 'Something went wrong. Please try again.';
       } else if (error.message) {
+        // Handle client-side validation errors (like version validation)
         errorMessage = error.message;
+      } else {
+        errorMessage = 'Failed to update item. Please try again.';
       }
 
+      // Always show error toast
+      showToast(errorMessage, 'error');
       setSubmitError(errorMessage);
     } finally {
       setIsSubmitting(false);

@@ -47,12 +47,11 @@ export default function EditItemPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto space-y-6">
         <div className="mb-6">
-          <Skeleton height="h-8" width="w-64" className="mb-2" />
           <Skeleton height="h-4" width="w-96" />
         </div>
-        <Card padding="lg">
+        <Card variant="elevated">
           <div className="space-y-4">
             <Skeleton height="h-10" />
             <Skeleton height="h-10" />
@@ -66,8 +65,8 @@ export default function EditItemPage() {
 
   if (error) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <Card padding="lg">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <Card variant="elevated">
           <ErrorMessage message={error} />
           <div className="mt-4">
             <Button onClick={handleCancel}>Back to Items</Button>
@@ -79,9 +78,9 @@ export default function EditItemPage() {
 
   if (!item) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <Card padding="lg">
-          <p className="text-gray-600">Item not found</p>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <Card variant="elevated">
+          <p className="text-slate-600">Item not found</p>
           <div className="mt-4">
             <Button onClick={handleCancel}>Back to Items</Button>
           </div>
@@ -91,17 +90,17 @@ export default function EditItemPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">
           Edit Item: {item.name}
         </h1>
-        <p className="text-gray-600">
+        <p className="text-base text-slate-600 leading-relaxed">
           Update item details below. All required fields are marked with an asterisk (*).
         </p>
       </div>
       
-      <Card padding="lg">
+      <Card variant="elevated">
         <ItemEditForm item={item} />
       </Card>
     </div>

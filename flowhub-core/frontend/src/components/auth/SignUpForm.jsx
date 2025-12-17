@@ -281,8 +281,8 @@ export default function SignUpForm() {
           />
 
           {passwordStrengthInfo && values.password && (
-            <div className="mb-5 p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs font-medium text-gray-700 mb-2">Password requirements:</div>
+            <div className="mb-5 p-3 bg-slate-50/50 rounded-xl border border-slate-200/60">
+              <div className="text-xs font-medium text-slate-700 mb-2">Password requirements:</div>
               <div className="space-y-1.5">
                 {[
                   { label: 'At least 8 characters', met: passwordStrengthInfo.hasLength },
@@ -293,7 +293,7 @@ export default function SignUpForm() {
                 ].map((req, idx) => (
                   <div key={idx} className="flex items-center text-xs">
                     <svg 
-                      className={`w-4 h-4 mr-2 flex-shrink-0 ${req.met ? 'text-green-600' : 'text-gray-400'}`}
+                      className={`w-4 h-4 mr-2 flex-shrink-0 ${req.met ? 'text-green-600' : 'text-slate-400'}`}
                       fill="currentColor" 
                       viewBox="0 0 20 20"
                     >
@@ -303,7 +303,7 @@ export default function SignUpForm() {
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                       )}
                     </svg>
-                    <span className={req.met ? 'text-gray-700' : 'text-gray-500'}>{req.label}</span>
+                    <span className={req.met ? 'text-slate-700' : 'text-slate-500'}>{req.label}</span>
                   </div>
                 ))}
               </div>
@@ -354,7 +354,7 @@ export default function SignUpForm() {
 
       {step === 'otp' && (
         <>
-          <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 flex items-start">
+          <div className="mb-5 p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-sm text-indigo-800 flex items-start">
             <svg className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
@@ -425,7 +425,7 @@ export default function SignUpForm() {
       {step === 'verify' && (
         <>
           {!submitError && (
-            <div className="mb-5 p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 flex items-start">
+            <div className="mb-5 p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800 flex items-start">
               <svg className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>

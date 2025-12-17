@@ -247,6 +247,20 @@ function getDefaultErrorMessage(statusCode) {
  */
 async function getItems(req, res, next) {
   try {
+    // Get user ID from authenticated request (set by authMiddleware)
+    // CRITICAL: This ensures users can only see their own items
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication required',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
     // Parse query parameters with defaults (no validation errors for invalid values)
     const search = req.query.search || null;
     const status = ['active', 'inactive'].includes(req.query.status) ? req.query.status : null;
@@ -287,8 +301,8 @@ async function getItems(req, res, next) {
       limit
     };
 
-    // Get items from service
-    const result = await itemService.getItems(filters);
+    // Get items from service - pass userId for data isolation
+    const result = await itemService.getItems(filters, userId);
 
     // Check if page needs redirection (page > totalPages)
     if (page > result.pagination.total_pages && result.pagination.total_pages > 0) {
@@ -448,7 +462,10 @@ async function updateItem(req, res, next) {
     }
 
     // Extract version from request body (required)
-    const providedVersion = req.body.version;
+    // Parse version from string (FormData sends everything as strings) to number
+    const providedVersion = req.body.version !== undefined && req.body.version !== null
+      ? parseInt(req.body.version, 10)
+      : undefined;
 
     // Extract item data from request body (exclude version from itemData)
     const itemData = extractItemData(req.body);

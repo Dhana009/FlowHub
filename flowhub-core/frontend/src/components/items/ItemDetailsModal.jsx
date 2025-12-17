@@ -282,35 +282,30 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
     cancelRequest();
     clearIframeTimeout();
 
-    // Set closing state
-    setModalState(MODAL_STATES.CLOSING);
-
-    // Clear URL hash (PRD Section 16.1: URL Hash Management)
+    // Clear URL hash immediately (PRD Section 16.1: URL Hash Management)
     if (window.location.hash.startsWith('#item/')) {
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
     }
 
-    // Reset state after animation
-    setTimeout(() => {
-      setModalState(MODAL_STATES.CLOSED);
-      setItem(null);
-      setError(null);
-      setRetryCount(0);
-      setIframeLoaded(false);
-      setIframeError(false);
+    // Close immediately without animation delay to prevent glitch
+    setModalState(MODAL_STATES.CLOSED);
+    setItem(null);
+    setError(null);
+    setRetryCount(0);
+    setIframeLoaded(false);
+    setIframeError(false);
 
-      // Return focus to trigger element (PRD Section 10.2: Focus Management)
-      if (triggerElement && typeof triggerElement.focus === 'function') {
-        triggerElement.focus();
-      } else if (previousFocusRef.current) {
-        previousFocusRef.current.focus();
-      }
+    // Return focus to trigger element (PRD Section 10.2: Focus Management)
+    if (triggerElement && typeof triggerElement.focus === 'function') {
+      triggerElement.focus();
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+    }
 
-      // Call onClose callback
-      if (onClose) {
-        onClose();
-      }
-    }, 300); // Match animation duration
+    // Call onClose callback
+    if (onClose) {
+      onClose();
+    }
   }, [cancelRequest, clearIframeTimeout, triggerElement, onClose]);
 
   /**
@@ -408,6 +403,9 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
       // Store current focus (PRD Section 10.1: Focus Management)
       previousFocusRef.current = document.activeElement;
 
+      // Lock body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+
       // Update URL hash (PRD Section 16.1: URL Hash Management)
       const newHash = `#item/${itemId}`;
       if (window.location.hash !== newHash) {
@@ -449,12 +447,16 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
       }, 150);
     } else if (!isOpen && modalState !== MODAL_STATES.CLOSED && modalState !== MODAL_STATES.CLOSING) {
       handleClose();
+    } else if (!isOpen) {
+      // Unlock body scroll when modal closes
+      document.body.style.overflow = '';
     }
 
-    // Cleanup timeouts
+    // Cleanup timeouts and restore scroll
     return () => {
       if (loadTimeoutId) clearTimeout(loadTimeoutId);
       if (focusTimeoutId) clearTimeout(focusTimeoutId);
+      document.body.style.overflow = '';
     };
   }, [isOpen, itemId, loadItem, handleClose, modalState, item]);
 
@@ -508,15 +510,14 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
     }
   }, [modalState]);
 
-  // Don't render if closed and not open
-  // But render if isOpen is true (even if state is CLOSED initially) to allow opening animation
-  if (modalState === MODAL_STATES.CLOSED && !isOpen) {
+  // Don't render if not open
+  if (!isOpen) {
     return null;
   }
+  
+  // Render the modal - state will transition from CLOSED to OPENING in useEffect
 
   const sanitizedId = sanitizeId(itemId);
-  const isAnimating = modalState === MODAL_STATES.OPENING || modalState === MODAL_STATES.CLOSING;
-  const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   return (
     <div
@@ -524,11 +525,7 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
       aria-modal="true"
       aria-labelledby="modal-title"
       aria-describedby={item ? "modal-description" : undefined}
-      className={`
-        fixed inset-0 z-50 flex items-center justify-center
-        ${isAnimating && !isReducedMotion ? 'transition-opacity duration-300' : ''}
-        ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}
-      `}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       onClick={(e) => {
         // Close on overlay click (PRD Section 10.2)
         if (e.target === e.currentTarget) {
@@ -539,11 +536,7 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
     >
       {/* Overlay (PRD Section 6.1) */}
       <div
-        className={`
-          absolute inset-0 bg-black
-          ${isReducedMotion ? '' : 'transition-opacity duration-300'}
-          ${isOpen ? 'opacity-50' : 'opacity-0'}
-        `}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         aria-hidden="true"
       />
 
@@ -551,31 +544,32 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
       <div
         ref={modalRef}
         className={`
-          relative bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4
+          relative bg-white rounded-xl shadow-2xl max-w-3xl w-full mx-4 my-4
           max-h-[90vh] overflow-hidden flex flex-col
           ${isReducedMotion ? '' : 'transition-all duration-300'}
           ${isOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-[-20px]'}
         `}
         data-testid="item-details-modal"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header (PRD Section 6.1) */}
-        <header
-          role="banner"
-          className="flex items-center justify-between p-6 border-b border-gray-200"
-        >
+        <        header
+        role="banner"
+        className="flex items-center justify-between p-6 border-b border-slate-200"
+      >
           <h2
             id="modal-title"
-            className="text-2xl font-semibold text-gray-900"
+            className="text-2xl font-semibold text-slate-900"
             data-testid="modal-title"
           >
-            {item?.name || 'Item Details'}
+            Item Details
           </h2>
           <button
             ref={closeButtonRef}
             onClick={handleClose}
             className="
-              ml-4 p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100
-              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+              ml-4 p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100
+              focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
               transition-colors duration-200
             "
             aria-label="Close modal"
@@ -660,7 +654,7 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
               {/* Item Name */}
               <div>
                 <h3
-                  className="text-3xl font-bold text-gray-900 mb-2"
+                  className="text-2xl font-bold text-slate-900 mb-3"
                   data-testid={`item-name-${sanitizedId}`}
                 >
                   {item.name || 'Unnamed Item'}

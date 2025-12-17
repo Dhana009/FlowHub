@@ -394,10 +394,38 @@ export async function updateItem(itemId, itemData, file = null, version) {
     const formData = new FormData();
     
     // Append version (required for optimistic locking)
+    // Robust version sanitization to handle all edge cases
     if (version === undefined || version === null) {
       throw new Error('Version field is required for item updates');
     }
-    formData.append('version', version.toString());
+    
+    // Use parseInt with base 10 to avoid floating point and scientific notation issues
+    const versionNum = parseInt(version, 10);
+    
+    // Validate: must be a finite integer, positive, and not NaN
+    if (!Number.isFinite(versionNum) || isNaN(versionNum) || versionNum <= 0 || !Number.isInteger(versionNum)) {
+      console.error('Version validation failed:', {
+        original: version,
+        type: typeof version,
+        parsed: versionNum,
+        isFinite: Number.isFinite(versionNum),
+        isNaN: isNaN(versionNum),
+        isInteger: Number.isInteger(versionNum),
+        isPositive: versionNum > 0
+      });
+      throw new Error(`Version field is required and must be a positive integer. Received: ${version} (parsed as ${versionNum})`);
+    }
+    
+    // Ensure clean integer string (no decimals, no scientific notation)
+    const cleanVersion = Math.floor(Math.abs(versionNum)).toString();
+    formData.append('version', cleanVersion);
+    
+    // Debug logging
+    console.log('Version validation passed:', {
+      original: version,
+      parsed: versionNum,
+      final: cleanVersion
+    });
     
     // Append all item fields that are provided
     if (itemData.name !== undefined) formData.append('name', itemData.name || '');
@@ -443,6 +471,17 @@ export async function updateItem(itemId, itemData, file = null, version) {
       formData.append('file', file);
     }
 
+    // Debug: Log all FormData entries before sending
+    console.log('=== FormData being sent to API ===');
+    for (let [key, value] of formData.entries()) {
+      if (key === 'file') {
+        console.log(`${key}: [File] ${value.name || 'unknown'} (${value.size} bytes)`);
+      } else {
+        console.log(`${key}:`, value, `(type: ${typeof value})`);
+      }
+    }
+    console.log('=== End FormData ===');
+
     // Make API call (PUT request)
     const response = await api.put(`/items/${itemId}`, formData, {
       headers: {
@@ -452,6 +491,19 @@ export async function updateItem(itemId, itemData, file = null, version) {
 
     return response.data;
   } catch (error) {
+    // Enhanced error logging for debugging
+    console.error('=== Update Item Error ===');
+    console.error('Error object:', error);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+      console.error('Response headers:', error.response.headers);
+    }
+    if (error.request) {
+      console.error('Request config:', error.config);
+    }
+    console.error('=== End Error Details ===');
+    
     // Handle error responses - PRD format
     if (error.response) {
       const errorData = error.response.data;

@@ -140,7 +140,7 @@ export default function AppRoutes() {
         path="/items/:id/edit"
         element={
           <ProtectedRoute>
-            <AppLayout title="Edit Item">
+            <AppLayout>
               <EditItemPage />
             </AppLayout>
           </ProtectedRoute>

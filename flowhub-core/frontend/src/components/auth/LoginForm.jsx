@@ -104,13 +104,13 @@ export default function LoginForm() {
             onChange={(e) => handleChange('rememberMe', e.target.checked)}
             data-testid="login-remember-me"
             aria-label="Remember Me"
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+            className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 focus:ring-2"
           />
-          <span className="ml-2 text-sm text-gray-700">Remember me</span>
+          <span className="ml-2 text-sm text-slate-700">Remember me</span>
         </label>
         <Link
           to="/forgot-password"
-          className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+          className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
         >
           Forgot password?
         </Link>

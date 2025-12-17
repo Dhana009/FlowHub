@@ -196,6 +196,9 @@ export default function DeleteConfirmationModal({
       // Store current focus (PRD Section 14.1: Focus Management)
       previousFocusRef.current = document.activeElement;
 
+      // Lock body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+
       // Reset state
       setModalState(MODAL_STATES.IDLE);
       setError(null);
@@ -208,12 +211,20 @@ export default function DeleteConfirmationModal({
         }
       }, 100);
     } else if (!isOpen) {
+      // Unlock body scroll when modal closes
+      document.body.style.overflow = '';
+      
       // Cleanup on close
       cancelRequest();
       setModalState(MODAL_STATES.IDLE);
       setError(null);
       setRetryCount(0);
     }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen, item, cancelRequest]);
 
   /**
@@ -259,33 +270,42 @@ export default function DeleteConfirmationModal({
   const showRetry = error && error.isRecoverable && modalState !== MODAL_STATES.ERROR_PERMANENT && retryCount < MAX_RETRIES;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="delete-modal-title"
-      aria-describedby="delete-modal-message"
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      data-testid="delete-confirm-modal"
-      onClick={(e) => {
-        // Close on overlay click (PRD Section 7.2: Overlay Click)
-        // Disabled during deletion (PRD Section 5)
-        if (e.target === e.currentTarget && !isDeleting) {
-          handleCancel();
-        }
-      }}
-    >
-      {/* Overlay (PRD Section 7.1) */}
+    <>
+      {/* Overlay (PRD Section 7.1) - Must cover header */}
       <div
-        className="absolute inset-0 bg-black opacity-50 transition-opacity duration-300"
+        className="fixed bg-black/60 backdrop-blur-sm transition-opacity duration-300"
+        style={{ 
+          zIndex: 100,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh'
+        }}
         aria-hidden="true"
-      />
-
-      {/* Modal Container (PRD Section 7.1) */}
+        onClick={(e) => {
+          if (!isDeleting) {
+            handleCancel();
+          }
+        }}
+      ></div>
+      
+      {/* Modal Dialog Container */}
       <div
-        ref={modalRef}
-        className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6"
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-modal-title"
+        aria-describedby="delete-modal-message"
+        className="fixed inset-0 z-[101] flex items-center justify-center pointer-events-none"
+        data-testid="delete-confirm-modal"
       >
+        {/* Modal Container (PRD Section 7.1) */}
+        <div
+          ref={modalRef}
+          className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 my-4 p-6 max-h-[90vh] overflow-y-auto pointer-events-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* Modal Title (PRD Section 7.1) */}
         <h2
           id="delete-modal-title"
@@ -364,8 +384,9 @@ export default function DeleteConfirmationModal({
             </button>
           )}
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

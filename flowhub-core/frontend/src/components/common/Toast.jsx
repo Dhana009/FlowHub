@@ -64,10 +64,10 @@ export default function Toast({ message, type = TOAST_TYPES.INFO, onDismiss, dur
   };
 
   const typeStyles = {
-    [TOAST_TYPES.SUCCESS]: 'bg-green-500 text-white border-green-600',
-    [TOAST_TYPES.ERROR]: 'bg-red-500 text-white border-red-600',
-    [TOAST_TYPES.INFO]: 'bg-blue-500 text-white border-blue-600',
-    [TOAST_TYPES.WARNING]: 'bg-yellow-500 text-white border-yellow-600'
+    [TOAST_TYPES.SUCCESS]: 'bg-emerald-50 border-emerald-500 text-emerald-800',
+    [TOAST_TYPES.ERROR]: 'bg-red-50 border-red-500 text-red-800',
+    [TOAST_TYPES.INFO]: 'bg-indigo-50 border-indigo-500 text-indigo-800',
+    [TOAST_TYPES.WARNING]: 'bg-amber-50 border-amber-500 text-amber-800'
   };
 
   const icons = {
@@ -117,7 +117,7 @@ export default function Toast({ message, type = TOAST_TYPES.INFO, onDismiss, dur
         </div>
         <button
           onClick={handleDismiss}
-          className="ml-4 flex-shrink-0 text-white hover:text-gray-200 focus:outline-none"
+          className="ml-4 flex-shrink-0 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
           aria-label="Dismiss notification"
           data-testid="toast-dismiss-button"
         >

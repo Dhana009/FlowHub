@@ -171,17 +171,29 @@ async function testUpdateItem() {
       return false;
     }
 
-    const updateData = {
-      name: `Updated Test Item ${Date.now()}`,
-      description: 'This is an updated test item description',
-      price: 149.99,
-      weight: 2.0
-    };
+    // First get the item to get its current version
+    const getResponse = await axios.get(`${BASE_URL}/items/${createdItemId}`, {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+    
+    const currentVersion = getResponse.data.data.version || 1;
+    log(`  Current item version: ${currentVersion}`, 'yellow');
 
-    const response = await axios.put(`${BASE_URL}/items/${createdItemId}`, updateData, {
+    // Test with FormData (like frontend does) - version as string
+    const formData = new FormData();
+    formData.append('name', `Updated Test Item ${Date.now()}`);
+    formData.append('description', 'This is an updated test item description');
+    formData.append('price', '149.99');
+    formData.append('weight', '2.0');
+    formData.append('version', currentVersion.toString()); // Send as string (like FormData does)
+
+    log('  Testing with FormData (version as string)...', 'yellow');
+    const response = await axios.put(`${BASE_URL}/items/${createdItemId}`, formData, {
       headers: {
         'Authorization': `Bearer ${authToken}`,
-        'Content-Type': 'application/json'
+        ...formData.getHeaders()
       }
     });
 
@@ -189,6 +201,13 @@ async function testUpdateItem() {
       log('✓ Update item successful', 'green');
       log(`  Updated Name: ${response.data.data.name}`, 'yellow');
       log(`  Updated Price: $${response.data.data.price}`, 'yellow');
+      log(`  New Version: ${response.data.data.version} (was ${currentVersion})`, 'yellow');
+      
+      if (response.data.data.version === currentVersion + 1) {
+        log('✓ Version incremented correctly', 'green');
+      } else {
+        log('✗ Version mismatch', 'red');
+      }
       return true;
     } else {
       log('✗ Update item failed', 'red');

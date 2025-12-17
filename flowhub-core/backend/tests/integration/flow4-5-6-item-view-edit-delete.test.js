@@ -863,6 +863,22 @@ describe('Flow 4, 5, 6 - Item View, Edit, Delete API Tests', () => {
         expect(response.body.data.version).toBe(itemVersion + 1);
       });
 
+      test('should update item with FormData (version as string)', async () => {
+        // Test FormData like frontend sends it (version as string)
+        const response = await request(app)
+          .put(`/api/v1/items/${itemToUpdate._id}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .field('name', 'Updated via FormData')
+          .field('description', 'Updated description via FormData')
+          .field('price', '199.99')
+          .field('version', itemVersion.toString()) // Send as string (like FormData does)
+          .expect(200);
+
+        expect(response.body.status).toBe('success');
+        expect(response.body.data.name).toBe('Updated via FormData');
+        expect(response.body.data.version).toBe(itemVersion + 1);
+      });
+
       test('should support partial updates (only name)', async () => {
         const updateData = {
           name: 'Partially Updated Name',

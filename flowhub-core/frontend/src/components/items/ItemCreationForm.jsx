@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../../contexts/ToastContext';
 import useForm from '../../hooks/useForm';
 import {
   itemName,
@@ -32,6 +33,7 @@ import FileUpload from './FileUpload';
  */
 export default function ItemCreationForm() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -203,7 +205,8 @@ export default function ItemCreationForm() {
       
       // Check if response matches PRD success format
       if (result.status === 'success' && result.data) {
-        // Success - redirect to items list
+        // Success - show toast and redirect to items list
+        showToast('Item created successfully!', 'success');
         navigate('/items', { 
           replace: true,
           state: { message: 'Item created successfully!' }
@@ -257,6 +260,7 @@ export default function ItemCreationForm() {
       }
 
       setSubmitError(errorMessage);
+      showToast(errorMessage, 'error');
     } finally {
       setIsSubmitting(false);
     }
