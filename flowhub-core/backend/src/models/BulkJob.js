@@ -18,7 +18,7 @@ const bulkJobSchema = new mongoose.Schema({
   operation: {
     type: String,
     required: true,
-    enum: ['delete', 'update_category', 'activate', 'deactivate']
+    enum: ['delete', 'activate', 'deactivate']
   },
   itemIds: [{
     type: mongoose.Schema.Types.ObjectId,

@@ -5,7 +5,7 @@ import Button from '../common/Button';
  * 
  * Floating bar that appears when items are selected.
  */
-export default function BulkActionsBar({ selectedCount, onBulkDeactivate, onBulkActivate, onBulkUpdateCategory, onClearSelection }) {
+export default function BulkActionsBar({ selectedCount, onBulkDeactivate, onBulkActivate, onClearSelection }) {
   if (selectedCount === 0) return null;
 
   return (
@@ -22,14 +22,6 @@ export default function BulkActionsBar({ selectedCount, onBulkDeactivate, onBulk
         </div>
 
         <div className="flex items-center space-x-3">
-          <button
-            onClick={onBulkUpdateCategory}
-            className="text-sm font-semibold text-slate-300 hover:text-white transition-colors duration-150 px-3 py-1 rounded-md hover:bg-slate-800"
-            data-testid="bulk-update-category-button"
-          >
-            Update Category
-          </button>
-          
           <button
             onClick={onBulkActivate}
             className="text-sm font-semibold text-emerald-400 hover:text-emerald-300 transition-colors duration-150 px-3 py-1 rounded-md hover:bg-emerald-900/20"

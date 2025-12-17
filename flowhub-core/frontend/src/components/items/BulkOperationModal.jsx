@@ -127,7 +127,7 @@ export default function BulkOperationModal({ isOpen, jobId, initialProgress = 0,
                   <span className="font-bold text-emerald-600" data-testid="success-count">{summary?.success}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600 text-xs italic">Already in State (Skipped):</span>
+                  <span className="text-slate-600 text-xs italic">Skipped / Acknowledged:</span>
                   <span className="font-medium text-slate-500 text-xs" data-testid="skipped-count">{skippedCount}</span>
                 </div>
                 <div className="flex justify-between text-sm pt-1">

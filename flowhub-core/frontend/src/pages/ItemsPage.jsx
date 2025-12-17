@@ -9,7 +9,6 @@ import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModa
 import Card from '../components/ui/Card';
 import BulkActionsBar from '../components/items/BulkActionsBar';
 import BulkOperationModal from '../components/items/BulkOperationModal';
-import BulkCategoryModal from '../components/items/BulkCategoryModal';
 
 /**
  * Items Page - Flow 3 Implementation
@@ -60,7 +59,6 @@ export default function ItemsPage() {
   const [bulkJobId, setBulkJobId] = useState(null);
   const [bulkInitialProgress, setBulkInitialProgress] = useState(0);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-  const [isBulkCategoryModalOpen, setIsBulkCategoryModalOpen] = useState(false);
 
   /**
    * Toggle item selection
@@ -95,7 +93,6 @@ export default function ItemsPage() {
       setBulkJobId(response.job_id);
       setBulkInitialProgress(response.job_progress || 0);
       setIsBulkModalOpen(true);
-      setIsBulkCategoryModalOpen(false);
     } catch (err) {
       showToast(err.message || 'Failed to start bulk operation', 'error');
     } finally {
@@ -941,7 +938,6 @@ export default function ItemsPage() {
         selectedCount={selectedItems.length}
         onBulkDeactivate={() => handleStartBulkJob('deactivate')}
         onBulkActivate={() => handleStartBulkJob('activate')}
-        onBulkUpdateCategory={() => setIsBulkCategoryModalOpen(true)}
         onClearSelection={() => setSelectedItems([])}
       />
 
@@ -951,13 +947,6 @@ export default function ItemsPage() {
         initialProgress={bulkInitialProgress}
         onComplete={handleBulkJobComplete}
         onCancel={() => setIsBulkModalOpen(false)}
-      />
-
-      <BulkCategoryModal
-        isOpen={isBulkCategoryModalOpen}
-        categories={categories}
-        onConfirm={(category) => handleStartBulkJob('update_category', { category })}
-        onCancel={() => setIsBulkCategoryModalOpen(false)}
       />
 
       {/* Toast Notifications (Flow 6) */}
