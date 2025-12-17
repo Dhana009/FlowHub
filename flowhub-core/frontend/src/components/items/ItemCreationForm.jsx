@@ -53,31 +53,14 @@ export default function ItemCreationForm() {
     duration_hours: ''
   };
 
-  // Validation rules - dynamic based on item_type
-  const getValidationRules = (itemType) => {
-    const baseRules = {
-      name: itemName,
-      description: itemDescription,
-      item_type: itemType,
-      price: itemPrice,
-      category: itemCategory,
-      tags: itemTags
-    };
-
-    // Add conditional validation rules
-    if (itemType === 'PHYSICAL') {
-      baseRules.weight = itemWeight;
-      baseRules['dimensions.length'] = itemDimension;
-      baseRules['dimensions.width'] = itemDimension;
-      baseRules['dimensions.height'] = itemDimension;
-    } else if (itemType === 'DIGITAL') {
-      baseRules.download_url = itemDownloadUrl;
-      baseRules.file_size = itemFileSize;
-    } else if (itemType === 'SERVICE') {
-      baseRules.duration_hours = itemDurationHours;
-    }
-
-    return baseRules;
+  // Base validation rules (always applied)
+  const baseValidationRules = {
+    name: itemName,
+    description: itemDescription,
+    item_type: itemType,
+    price: itemPrice,
+    category: itemCategory,
+    tags: itemTags
   };
 
   const {
@@ -90,23 +73,27 @@ export default function ItemCreationForm() {
     setFormValues,
     setErrors,
     setTouched
-  } = useForm(initialValues, getValidationRules(values.item_type));
+  } = useForm(initialValues, baseValidationRules);
 
   // Clear conditional fields when item_type changes
   useEffect(() => {
-    if (values.item_type) {
-      // Clear conditional fields when type changes
-      const clearedValues = {
-        weight: '',
-        dimensions: { length: '', width: '', height: '' },
-        download_url: '',
-        file_size: '',
-        duration_hours: ''
-      };
-      setFormValues(clearedValues);
-      
-      // Clear related errors
-      const clearedErrors = { ...errors };
+    if (!values.item_type) {
+      return;
+    }
+    
+    // Clear conditional fields when type changes
+    const clearedValues = {
+      weight: '',
+      dimensions: { length: '', width: '', height: '' },
+      download_url: '',
+      file_size: '',
+      duration_hours: ''
+    };
+    setFormValues(clearedValues);
+    
+    // Clear related errors
+    setErrors((prevErrors) => {
+      const clearedErrors = { ...prevErrors };
       delete clearedErrors.weight;
       delete clearedErrors['dimensions.length'];
       delete clearedErrors['dimensions.width'];
@@ -114,10 +101,12 @@ export default function ItemCreationForm() {
       delete clearedErrors.download_url;
       delete clearedErrors.file_size;
       delete clearedErrors.duration_hours;
-      setErrors(clearedErrors);
-      
-      // Clear related touched states
-      const clearedTouched = { ...touched };
+      return clearedErrors;
+    });
+    
+    // Clear related touched states
+    setTouched((prevTouched) => {
+      const clearedTouched = { ...prevTouched };
       delete clearedTouched.weight;
       delete clearedTouched['dimensions.length'];
       delete clearedTouched['dimensions.width'];
@@ -125,9 +114,9 @@ export default function ItemCreationForm() {
       delete clearedTouched.download_url;
       delete clearedTouched.file_size;
       delete clearedTouched.duration_hours;
-      setTouched(clearedTouched);
-    }
-  }, [values.item_type]);
+      return clearedTouched;
+    });
+  }, [values.item_type, setFormValues, setErrors, setTouched]);
 
   // Handle file selection
   const handleFileSelect = (file, error) => {
@@ -179,11 +168,11 @@ export default function ItemCreationForm() {
     try {
       // Prepare item data
       const itemData = {
-        name: values.name,
-        description: values.description,
+        name: values.name.trim(),
+        description: values.description.trim(),
         item_type: values.item_type.toUpperCase(),
         price: parseFloat(values.price),
-        category: values.category,
+        category: values.category.trim(),
         tags: values.tags ? values.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
       };
 
@@ -196,7 +185,7 @@ export default function ItemCreationForm() {
           height: parseFloat(values.dimensions.height)
         };
       } else if (values.item_type === 'DIGITAL') {
-        itemData.download_url = values.download_url;
+        itemData.download_url = values.download_url.trim();
         itemData.file_size = parseInt(values.file_size, 10);
       } else if (values.item_type === 'SERVICE') {
         itemData.duration_hours = parseInt(values.duration_hours, 10);
@@ -204,30 +193,56 @@ export default function ItemCreationForm() {
 
       // Create item
       const result = await createItem(itemData, selectedFile);
-
-      // Success - redirect to items list
-      navigate('/items', { 
-        replace: true,
-        state: { message: 'Item created successfully!' }
-      });
+      
+      // Check if response matches PRD success format
+      if (result.status === 'success' && result.data) {
+        // Success - redirect to items list
+        navigate('/items', { 
+          replace: true,
+          state: { message: 'Item created successfully!' }
+        });
+      }
     } catch (error) {
-      // Handle error
+      // Handle error - PRD format
       let errorMessage = 'Failed to create item. Please try again.';
+      let fieldErrors = {};
 
-      if (error.statusCode === 400) {
-        errorMessage = error.message || 'Invalid data. Please check your input.';
-      } else if (error.statusCode === 401) {
+      if (error.statusCode === 401) {
         errorMessage = 'Authentication required. Please log in.';
         navigate('/login', { replace: true });
         return;
-      } else if (error.statusCode === 409) {
-        errorMessage = 'Item with same name and category already exists.';
       } else if (error.statusCode === 413) {
         errorMessage = 'File too large. Max size: 5MB';
+        setFileError(errorMessage);
       } else if (error.statusCode === 415) {
-        errorMessage = 'File type not supported.';
+        errorMessage = 'File type not supported. Allowed types: .jpg, .jpeg, .png, .pdf, .doc, .docx';
+        setFileError(errorMessage);
       } else if (error.statusCode === 422) {
+        // Schema validation errors - may have field-specific errors
         errorMessage = error.message || 'Validation failed. Please check your input.';
+        if (error.details && Array.isArray(error.details)) {
+          // Map field errors from details array
+          error.details.forEach(detail => {
+            if (detail.field) {
+              fieldErrors[detail.field] = detail.message;
+            }
+          });
+          // Update form errors
+          setErrors(prev => ({ ...prev, ...fieldErrors }));
+        }
+      } else if (error.statusCode === 400) {
+        // Business rule validation errors
+        errorMessage = error.message || 'Business rule validation failed. Please check your input.';
+        if (error.details && Array.isArray(error.details)) {
+          error.details.forEach(detail => {
+            if (detail.field) {
+              fieldErrors[detail.field] = detail.message;
+            }
+          });
+          setErrors(prev => ({ ...prev, ...fieldErrors }));
+        }
+      } else if (error.statusCode === 409) {
+        errorMessage = error.message || 'Item with same name and category already exists.';
       } else if (error.statusCode === 500) {
         errorMessage = 'Something went wrong. Please try again.';
       } else if (error.message) {

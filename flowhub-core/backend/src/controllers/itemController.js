@@ -3,11 +3,11 @@
  * 
  * Handles HTTP requests for item operations.
  * Delegates business logic to itemService.
+ * Uses validation service for 5-layer validation.
  */
 
 const itemService = require('../services/itemService');
-const { sendErrorResponse, handleMongooseError } = require('../utils/errorResponse');
-const path = require('path');
+const mongoose = require('mongoose');
 
 /**
  * Create a new item
@@ -19,78 +19,300 @@ const path = require('path');
  */
 async function createItem(req, res, next) {
   try {
-    // Parse item_data from form field (JSON string)
-    let itemData;
-    try {
-      itemData = JSON.parse(req.body.item_data || '{}');
-    } catch (parseError) {
-      return res.status(400).json({
-        error: 'Invalid item_data format. Must be valid JSON.',
-        statusCode: 400
-      });
-    }
-
-    // Validate required fields
-    if (!itemData.name || !itemData.description || !itemData.item_type || 
-        !itemData.price || !itemData.category) {
-      return res.status(400).json({
-        error: 'Missing required fields: name, description, item_type, price, category',
-        statusCode: 400
-      });
-    }
-
     // Get user ID from authenticated request (set by authMiddleware)
     const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({
-        error: 'Authentication required',
-        statusCode: 401
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication required',
+        timestamp: new Date().toISOString(),
+        path: req.path
       });
     }
 
-    // Prepare file metadata if file was uploaded
-    let fileMetadata = null;
-    if (req.file) {
-      // Get relative path from uploads directory
-      const relativePath = path.relative(
-        path.join(__dirname, '../../'),
-        req.file.path
-      ).replace(/\\/g, '/'); // Normalize path separators
+    // Extract item data from form fields
+    const itemData = extractItemData(req.body);
+    
+    // Get file from multer (stored in memory buffer)
+    const file = req.file || null;
 
-      fileMetadata = {
-        path: relativePath,
-        original_name: req.fileMetadata.original_name,
-        content_type: req.fileMetadata.content_type,
-        size: req.fileMetadata.size
-      };
-    }
+    // Create item using service (includes all validation layers)
+    const item = await itemService.createItem(itemData, file, userId);
 
-    // Create item using service
-    const item = await itemService.createItem(itemData, userId, fileMetadata);
+    // Format response according to PRD
+    const responseData = formatItemResponse(item);
 
-    // Return success response
-    res.status(201).json({
+    // Return success response (201 Created)
+    return res.status(201).json({
       status: 'success',
       message: 'Item created successfully',
-      data: item,
+      data: responseData,
       item_id: item._id.toString()
     });
 
   } catch (error) {
-    // Handle file cleanup on error
-    if (req.file && req.file.path) {
-      await itemService.cleanupFileOnError(req.file.path);
+    // Handle validation errors from validation service
+    if (error.statusCode && error.layer) {
+      // Special handling for 409 (duplicate detection)
+      const errorCode = error.statusCode === 409 ? 'CONFLICT_ERROR' : error.statusCode;
+      return res.status(error.statusCode).json({
+        status: 'error',
+        error_code: errorCode,
+        error_type: getErrorType(error.statusCode, error.layer),
+        message: error.message || getDefaultErrorMessage(error.statusCode),
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
     }
 
-    // Handle Mongoose errors
-    if (error.name === 'ValidationError' || error.code === 11000) {
-      const mongooseError = handleMongooseError(error);
-      return sendErrorResponse(res, mongooseError);
+    // Handle validation service duplicate detection error (Layer 5)
+    if (error.statusCode === 409) {
+      return res.status(409).json({
+        status: 'error',
+        error_code: 'CONFLICT_ERROR',
+        error_type: 'Conflict - Duplicate item',
+        message: error.message || 'Item with same name and category already exists',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
     }
 
-    // Handle service errors (business rules, duplicates)
+    // Handle MongoDB duplicate key error (database constraint - fallback)
+    if (error.code === 11000) {
+      return res.status(409).json({
+        status: 'error',
+        error_code: 'CONFLICT_ERROR',
+        error_type: 'Conflict - Duplicate item',
+        message: 'Item with same name and category already exists',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity - Schema validation failed',
+        message: Object.values(error.errors)[0]?.message || 'Validation failed',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Generic error - pass to error handler
+    next(error);
+  }
+}
+
+/**
+ * Extract and parse item data from form fields
+ * 
+ * @param {object} body - Request body
+ * @returns {object} Parsed item data
+ */
+function extractItemData(body) {
+  // Parse tags if provided (can be array or comma-separated string)
+  let tags = [];
+  if (body.tags) {
+    if (Array.isArray(body.tags)) {
+      tags = body.tags;
+    } else if (typeof body.tags === 'string') {
+      tags = body.tags.split(',').map(t => t.trim()).filter(t => t);
+    }
+  }
+
+  // Parse dimensions if provided (can be nested object or separate fields)
+  let dimensions = undefined;
+  
+  // Helper to safely parse dimension value
+  const parseDimension = (value) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    const parsed = typeof value === 'number' ? value : parseFloat(value);
+    return isNaN(parsed) ? undefined : parsed;
+  };
+  
+  // Check if dimensions provided as nested object first
+  if (body.dimensions && typeof body.dimensions === 'object' && !Array.isArray(body.dimensions)) {
+    dimensions = {
+      length: parseDimension(body.dimensions.length),
+      width: parseDimension(body.dimensions.width),
+      height: parseDimension(body.dimensions.height)
+    };
+  } 
+  // Otherwise check for separate fields (only if dimensions object wasn't found)
+  else if (body.length !== undefined || body.width !== undefined || body.height !== undefined) {
+    dimensions = {
+      length: parseDimension(body.length),
+      width: parseDimension(body.width),
+      height: parseDimension(body.height)
+    };
+  }
+
+  return {
+    name: body.name,
+    description: body.description,
+    item_type: body.item_type,
+    price: body.price !== undefined && body.price !== null ? parseFloat(body.price) : undefined,
+    category: body.category,
+    tags: tags.length > 0 ? tags : undefined,
+    // Conditional fields
+    weight: body.weight !== undefined && body.weight !== null ? parseFloat(body.weight) : undefined,
+    dimensions: dimensions,
+    download_url: body.download_url,
+    file_size: body.file_size !== undefined && body.file_size !== null ? parseFloat(body.file_size) : undefined,
+    duration_hours: body.duration_hours !== undefined && body.duration_hours !== null ? parseInt(body.duration_hours) : undefined
+  };
+}
+
+/**
+ * Format item response according to PRD
+ * Removes internal normalized fields
+ * 
+ * @param {object} item - Item document
+ * @returns {object} Formatted item data
+ */
+function formatItemResponse(item) {
+  const itemObj = item.toObject ? item.toObject() : item;
+  
+  // Remove internal fields (already handled by model's toJSON transform)
+  // But ensure we have the right structure
+  return itemObj;
+}
+
+/**
+ * Get error type string based on status code and layer
+ * 
+ * @param {number} statusCode - HTTP status code
+ * @param {number} layer - Validation layer
+ * @returns {string} Error type description
+ */
+function getErrorType(statusCode, layer) {
+  const errorTypes = {
+    401: 'Unauthorized',
+    413: 'Payload Too Large',
+    415: 'Unsupported Media Type',
+    422: 'Unprocessable Entity - Schema validation failed',
+    400: 'Bad Request - Business rule validation failed',
+    409: 'Conflict - Duplicate item'
+  };
+  
+  return errorTypes[statusCode] || 'Error';
+}
+
+/**
+ * Get default error message based on status code
+ * 
+ * @param {number} statusCode - HTTP status code
+ * @returns {string} Default error message
+ */
+function getDefaultErrorMessage(statusCode) {
+  const messages = {
+    401: 'Authentication required',
+    413: 'File size exceeds limit',
+    415: 'File type not allowed',
+    422: 'Validation failed',
+    400: 'Business rule validation failed',
+    409: 'Duplicate item detected'
+  };
+  
+  return messages[statusCode] || 'An error occurred';
+}
+
+/**
+ * Get all items with search, filter, sort, and pagination
+ * GET /api/v1/items
+ * Implements Flow 3 requirements
+ * 
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @param {function} next - Express next function
+ */
+async function getItems(req, res, next) {
+  try {
+    // Parse query parameters with defaults (no validation errors for invalid values)
+    const search = req.query.search || null;
+    const status = ['active', 'inactive'].includes(req.query.status) ? req.query.status : null;
+    const category = req.query.category || null;
+    
+    // Handle sort_by - can be array or single value
+    let sort_by = ['createdAt'];
+    if (req.query.sort_by) {
+      if (Array.isArray(req.query.sort_by)) {
+        sort_by = req.query.sort_by;
+      } else {
+        sort_by = [req.query.sort_by];
+      }
+    }
+    
+    // Handle sort_order - can be array or single value
+    let sort_order = ['desc'];
+    if (req.query.sort_order) {
+      if (Array.isArray(req.query.sort_order)) {
+        sort_order = req.query.sort_order;
+      } else {
+        sort_order = [req.query.sort_order];
+      }
+    }
+    
+    // Pagination parameters with auto-correction
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+
+    // Build filters object
+    const filters = {
+      search,
+      status,
+      category,
+      sort_by,
+      sort_order,
+      page,
+      limit
+    };
+
+    // Get items from service
+    const result = await itemService.getItems(filters);
+
+    // Check if page needs redirection (page > totalPages)
+    if (page > result.pagination.total_pages && result.pagination.total_pages > 0) {
+      // Redirect to last valid page
+      const redirectParams = new URLSearchParams(req.query);
+      redirectParams.set('page', result.pagination.total_pages.toString());
+      return res.redirect(`${req.path}?${redirectParams.toString()}`);
+    }
+
+    // Return success response
+    return res.status(200).json({
+      status: 'success',
+      items: result.items,
+      pagination: result.pagination
+    });
+
+  } catch (error) {
+    // Handle authentication errors silently for auto-refresh
+    if (error.statusCode === 401 && req.headers['x-auto-refresh'] === 'true') {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication expired',
+        silent: true
+      });
+    }
+
+    // Handle other errors
     if (error.statusCode) {
-      return sendErrorResponse(res, error);
+      return res.status(error.statusCode).json({
+        status: 'error',
+        error_code: error.statusCode,
+        error_type: getErrorType(error.statusCode),
+        message: error.message || getDefaultErrorMessage(error.statusCode),
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
     }
 
     // Generic error
@@ -99,28 +321,7 @@ async function createItem(req, res, next) {
 }
 
 /**
- * Get all items (for future use - Flow 3)
- * GET /api/v1/items
- * 
- * @param {object} req - Express request
- * @param {object} res - Express response
- * @param {function} next - Express next function
- */
-async function getItems(req, res, next) {
-  try {
-    // This will be implemented in Flow 3
-    res.status(200).json({
-      status: 'success',
-      message: 'Get items endpoint - to be implemented in Flow 3',
-      data: []
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
-/**
- * Get single item by ID (for future use - Flow 4)
+ * Get single item by ID (Flow 4)
  * GET /api/v1/items/:id
  * 
  * @param {object} req - Express request
@@ -129,13 +330,163 @@ async function getItems(req, res, next) {
  */
 async function getItem(req, res, next) {
   try {
-    // This will be implemented in Flow 4
-    res.status(200).json({
+    const itemId = req.params.id;
+    const userId = req.user?.userId;
+
+    // Validate item ID format
+    if (!mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: 'Invalid item ID format. Expected 24-character hexadecimal string.',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Get item from service
+    const item = await itemService.getItemById(itemId);
+
+    if (!item) {
+      return res.status(404).json({
+        status: 'error',
+        error_code: 404,
+        error_type: 'Not Found - Resource not found',
+        message: `Item with ID ${itemId} not found`,
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Format and return item
+    const formattedItem = formatItemResponse(item);
+
+    return res.status(200).json({
       status: 'success',
-      message: 'Get item endpoint - to be implemented in Flow 4',
-      data: null
+      message: 'Item retrieved successfully',
+      data: formattedItem
     });
+
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        status: 'error',
+        error_code: error.statusCode,
+        error_type: getErrorType(error.statusCode),
+        message: error.message || getDefaultErrorMessage(error.statusCode),
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+    next(error);
+  }
+}
+
+/**
+ * Update an existing item (Flow 5)
+ * PUT /api/v1/items/:id
+ * 
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @param {function} next - Express next function
+ */
+async function updateItem(req, res, next) {
+  try {
+    const itemId = req.params.id;
+    const userId = req.user?.userId;
+    const file = req.file || null;
+
+    // Validate item ID format
+    if (!mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: 'Invalid item ID format. Expected 24-character hexadecimal string.',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Extract item data from request body
+    const itemData = extractItemData(req.body);
+
+    // Update item via service
+    const updatedItem = await itemService.updateItem(itemId, itemData, file, userId);
+
+    // Format and return updated item
+    const formattedItem = formatItemResponse(updatedItem);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Item updated successfully',
+      data: formattedItem
+    });
+
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        status: 'error',
+        error_code: error.statusCode,
+        error_type: getErrorType(error.statusCode),
+        message: error.message || getDefaultErrorMessage(error.statusCode),
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+    next(error);
+  }
+}
+
+/**
+ * Delete an item (soft delete) (Flow 6)
+ * DELETE /api/v1/items/:id
+ * 
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @param {function} next - Express next function
+ */
+async function deleteItem(req, res, next) {
+  try {
+    const itemId = req.params.id;
+    const userId = req.user?.userId;
+
+    // Validate item ID format
+    if (!mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: 'Invalid item ID format. Expected 24-character hexadecimal string.',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Delete item via service (soft delete)
+    const deletedItem = await itemService.deleteItem(itemId, userId);
+
+    // Format and return deleted item
+    const formattedItem = formatItemResponse(deletedItem);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Item deleted successfully',
+      data: formattedItem
+    });
+
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        status: 'error',
+        error_code: error.statusCode,
+        error_type: getErrorType(error.statusCode),
+        message: error.message || getDefaultErrorMessage(error.statusCode),
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
     next(error);
   }
 }
@@ -143,6 +494,8 @@ async function getItem(req, res, next) {
 module.exports = {
   createItem,
   getItems,
-  getItem
+  getItem,
+  updateItem,
+  deleteItem
 };
 

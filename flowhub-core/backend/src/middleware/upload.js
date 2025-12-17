@@ -6,8 +6,6 @@
  */
 
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 
 // File upload configuration
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB in bytes
@@ -20,42 +18,21 @@ const ALLOWED_FILE_TYPES = [
   'application/msword', // .doc
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // .docx
 ];
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'];
+// File extensions are validated by MIME type
 
-// Ensure upload directory exists
-const uploadDir = path.join(__dirname, '../../uploads/items');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Upload directory will be created by fileService
+// Using memory storage for two-phase commit pattern
 
-// Storage configuration
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // Generate unique filename: timestamp-random-uuid.extension
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `item-${uniqueSuffix}${ext}`);
-  }
-});
+// Storage configuration - Use memory storage for two-phase commit pattern
+// File will be stored in memory buffer, then moved to permanent location after item creation
+const storage = multer.memoryStorage();
 
-// File filter function
+// File filter function - basic MIME type check
+// Detailed validation happens in validation service (Layer 3)
 const fileFilter = (req, file, cb) => {
-  const fileExt = path.extname(file.originalname).toLowerCase();
-  
-  // Check file extension
-  if (!ALLOWED_EXTENSIONS.includes(fileExt)) {
-    const error = new Error(`File type ${fileExt} not supported. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
-    error.statusCode = 415;
-    error.code = 'INVALID_FILE_TYPE';
-    return cb(error, false);
-  }
-
-  // Check MIME type (if provided)
+  // Basic MIME type check (detailed validation in validation service)
   if (file.mimetype && !ALLOWED_FILE_TYPES.includes(file.mimetype)) {
-    const error = new Error(`File type ${file.mimetype} not supported. Allowed: ${ALLOWED_FILE_TYPES.join(', ')}`);
+    const error = new Error(`File type ${file.mimetype} not supported`);
     error.statusCode = 415;
     error.code = 'INVALID_FILE_TYPE';
     return cb(error, false);
@@ -75,6 +52,7 @@ const upload = multer({
 });
 
 // Middleware for single file upload
+// Field name matches API contract: 'file'
 const uploadSingle = upload.single('file');
 
 // Middleware wrapper to handle errors properly
@@ -85,8 +63,12 @@ const handleFileUpload = (req, res, next) => {
       if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
           return res.status(413).json({
-            error: 'File too large. Max size: 5MB',
-            statusCode: 413
+            status: 'error',
+            error_code: 413,
+            error_type: 'Payload Too Large',
+            message: 'File size exceeds 5 MB limit',
+            timestamp: new Date().toISOString(),
+            path: req.path
           });
         }
         if (err.code === 'LIMIT_FILE_COUNT') {
@@ -104,8 +86,12 @@ const handleFileUpload = (req, res, next) => {
       // Handle custom errors (file type validation)
       if (err.statusCode === 415) {
         return res.status(415).json({
-          error: err.message || 'Unsupported media type',
-          statusCode: 415
+          status: 'error',
+          error_code: 415,
+          error_type: 'Unsupported Media Type',
+          message: err.message || 'File type not allowed. Allowed types: .jpg, .jpeg, .png, .pdf, .doc, .docx',
+          timestamp: new Date().toISOString(),
+          path: req.path
         });
       }
 
@@ -116,29 +102,9 @@ const handleFileUpload = (req, res, next) => {
       });
     }
 
-    // Additional validation: Check file size if file was uploaded
-    if (req.file) {
-      if (req.file.size < MIN_FILE_SIZE) {
-        // Delete the uploaded file
-        fs.unlink(req.file.path, (unlinkErr) => {
-          if (unlinkErr) {
-            console.error('Error deleting file:', unlinkErr);
-          }
-        });
-        return res.status(413).json({
-          error: 'File too small. Min size: 1KB',
-          statusCode: 413
-        });
-      }
-
-      // Store file metadata in request for controller use
-      req.fileMetadata = {
-        original_name: req.file.originalname,
-        content_type: req.file.mimetype,
-        size: req.file.size,
-        uploaded_at: new Date()
-      };
-    }
+    // File is stored in memory buffer (req.file.buffer)
+    // File validation will be done in validation service (Layer 3)
+    // No need to validate here - just pass through to controller
 
     next();
   });
@@ -148,8 +114,6 @@ module.exports = {
   uploadSingle,
   handleFileUpload,
   MAX_FILE_SIZE,
-  MIN_FILE_SIZE,
-  ALLOWED_FILE_TYPES,
-  ALLOWED_EXTENSIONS
+  ALLOWED_FILE_TYPES
 };
 

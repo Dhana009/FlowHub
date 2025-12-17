@@ -25,15 +25,37 @@ router.post(
 
 /**
  * GET /api/v1/items
- * Get all items (to be implemented in Flow 3)
+ * Get all items with search, filter, sort, and pagination
+ * Requires authentication (Flow 3)
  */
-router.get('/', itemController.getItems);
+router.get('/', verifyToken, itemController.getItems);
 
 /**
  * GET /api/v1/items/:id
- * Get single item by ID (to be implemented in Flow 4)
+ * Get single item by ID (Flow 4)
+ * Requires authentication
  */
-router.get('/:id', itemController.getItem);
+router.get('/:id', verifyToken, itemController.getItem);
+
+/**
+ * PUT /api/v1/items/:id
+ * Update an existing item (Flow 5)
+ * Requires authentication
+ * Supports file upload (optional, for file replacement)
+ */
+router.put(
+  '/:id',
+  verifyToken, // Authentication required
+  handleFileUpload, // Handle file upload (optional)
+  itemController.updateItem
+);
+
+/**
+ * DELETE /api/v1/items/:id
+ * Delete an item (soft delete) (Flow 6)
+ * Requires authentication
+ */
+router.delete('/:id', verifyToken, itemController.deleteItem);
 
 module.exports = router;
 

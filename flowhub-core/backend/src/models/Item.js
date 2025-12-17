@@ -9,6 +9,7 @@
 const mongoose = require('mongoose');
 
 const itemSchema = new mongoose.Schema({
+  // Core fields
   name: {
     type: String,
     required: [true, 'Name is required'],
@@ -16,6 +17,19 @@ const itemSchema = new mongoose.Schema({
     maxlength: [100, 'Name must not exceed 100 characters'],
     match: [/^[a-zA-Z0-9\s\-_]+$/, 'Name can only contain letters, numbers, spaces, hyphens, and underscores'],
     trim: true
+  },
+  // Normalized fields for duplicate detection and similarity matching
+  normalizedName: {
+    type: String,
+    required: true,
+    lowercase: true,
+    trim: true,
+    index: true
+  },
+  normalizedNamePrefix: {
+    type: String,
+    required: true,
+    index: true
   },
   description: {
     type: String,
@@ -49,6 +63,13 @@ const itemSchema = new mongoose.Schema({
     minlength: [1, 'Category must be at least 1 character'],
     maxlength: [50, 'Category must not exceed 50 characters'],
     trim: true
+  },
+  // Normalized category (Title Case) for consistent matching
+  normalizedCategory: {
+    type: String,
+    required: true,
+    trim: true,
+    index: true
   },
   tags: {
     type: [String],
@@ -220,23 +241,49 @@ const itemSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
     index: true
+  },
+  deleted_at: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true, // Automatically adds createdAt and updatedAt
   toJSON: {
     transform: function(doc, ret) {
-      // Remove internal fields from JSON output if needed
+      // Remove internal normalized fields from JSON output
+      delete ret.normalizedName;
+      delete ret.normalizedNamePrefix;
+      delete ret.normalizedCategory;
+      delete ret.__v;
       return ret;
     }
   }
 });
 
 // Create indexes
-// Compound unique index for duplicate prevention (name + category)
-itemSchema.index({ name: 1, category: 1 }, { unique: true, name: 'idx_name_category_unique' });
+// Compound unique index for duplicate prevention (normalizedName + normalizedCategory)
+// This prevents duplicates at database level, handling concurrent requests
+itemSchema.index({ 
+  normalizedName: 1, 
+  normalizedCategory: 1,
+  created_by: 1
+}, { 
+  unique: true, 
+  name: 'unique_item_name_category_user',
+  // Partial index: only for active items
+  partialFilterExpression: { is_active: true }
+});
 
-// Compound index for filtering by category and item_type
-itemSchema.index({ category: 1, item_type: 1 }, { name: 'idx_category_item_type' });
+// Compound index for filtering by normalized category and item_type
+itemSchema.index({ normalizedCategory: 1, item_type: 1 }, { name: 'idx_category_item_type' });
+
+// Index for similarity matching (adaptive prefix + category)
+itemSchema.index({ 
+  normalizedNamePrefix: 1, 
+  normalizedCategory: 1,
+  created_by: 1,
+  is_active: 1
+}, { name: 'idx_similar_items' });
 
 // Index for filtering by creator
 itemSchema.index({ created_by: 1 }, { name: 'idx_created_by' });
@@ -250,8 +297,35 @@ itemSchema.index({ createdAt: -1 }, { name: 'idx_created_at' });
 // Index for active items filtering
 itemSchema.index({ is_active: 1, createdAt: -1 }, { name: 'idx_active_created' });
 
-// Pre-save hook to validate conditional fields
+// Pre-save hook to generate normalized fields and validate conditional fields
 itemSchema.pre('save', function(next) {
+  // Normalize name: lowercase + whitespace normalization
+  if (this.isModified('name') || this.isNew) {
+    this.normalizedName = this.name.toLowerCase().trim().replace(/\s+/g, ' ');
+    
+    // Generate adaptive prefix for similarity matching
+    const nameLength = this.normalizedName.length;
+    if (nameLength === 0) {
+      this.normalizedNamePrefix = '';
+    } else if (nameLength <= 2) {
+      // 1-2 chars: use entire name
+      this.normalizedNamePrefix = this.normalizedName;
+    } else if (nameLength <= 4) {
+      // 3-4 chars: use all but last character
+      this.normalizedNamePrefix = this.normalizedName.substring(0, nameLength - 1);
+    } else {
+      // 5+ chars: use first 5 characters
+      this.normalizedNamePrefix = this.normalizedName.substring(0, 5);
+    }
+  }
+  
+  // Normalize category to Title Case
+  if (this.isModified('category') || this.isNew) {
+    this.normalizedCategory = this.category.trim().replace(/\w\S*/g, (txt) => 
+      txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+    );
+  }
+  
   // Clear conditional fields that don't apply to current item_type
   if (this.item_type !== 'PHYSICAL') {
     this.weight = undefined;

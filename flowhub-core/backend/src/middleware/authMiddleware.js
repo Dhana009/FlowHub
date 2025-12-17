@@ -21,8 +21,12 @@ function verifyToken(req, res, next) {
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
-        error: 'Unauthorized - No token provided',
-        statusCode: 401
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication required - No token provided',
+        timestamp: new Date().toISOString(),
+        path: req.path
       });
     }
 
@@ -40,8 +44,12 @@ function verifyToken(req, res, next) {
     next();
   } catch (error) {
     return res.status(401).json({
-      error: 'Unauthorized - Invalid or expired token',
-      statusCode: 401
+      status: 'error',
+      error_code: 401,
+      error_type: 'Unauthorized',
+      message: 'Authentication required - Invalid or expired token',
+      timestamp: new Date().toISOString(),
+      path: req.path
     });
   }
 }

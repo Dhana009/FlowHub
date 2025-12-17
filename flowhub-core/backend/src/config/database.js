@@ -25,7 +25,11 @@ async function connectDatabase() {
 
     await mongoose.connect(mongoUri, {
       useNewUrlParser: true,
-      useUnifiedTopology: true
+      useUnifiedTopology: true,
+      // Enable transactions support
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000
     });
   } catch (error) {
     console.error('Failed to connect to MongoDB:', error.message);
