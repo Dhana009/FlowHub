@@ -46,7 +46,7 @@ async function login(email, password, rememberMe = false) {
   }
 
   // Generate tokens
-  const token = generateJWT(user._id.toString(), user.email);
+  const token = generateJWT(user._id.toString(), user.email, user.role);
   const refreshToken = generateRefreshToken(user._id.toString(), user.email, rememberMe);
 
   // Update user: reset login attempts, update lastLogin
@@ -75,11 +75,18 @@ async function login(email, password, rememberMe = false) {
  * @param {string} email - User email
  * @param {string} password - Plain text password
  * @param {string} otp - 6-digit OTP
+ * @param {string} role - Optional role (default: EDITOR)
  * @returns {Promise<{token: string, refreshToken: string, user: object}>}
  * @throws {Error} - If signup fails
  */
-async function signup(firstName, lastName, email, password, otp) {
+async function signup(firstName, lastName, email, password, otp, role = 'EDITOR') {
   const emailLower = email.toLowerCase();
+
+  // Validate role if provided
+  const allowedRoles = ['ADMIN', 'EDITOR', 'VIEWER'];
+  if (role && !allowedRoles.includes(role)) {
+    throw new Error('Invalid role specified');
+  }
 
   // Consume OTP (verify and mark as used)
   // This is called after verify-otp endpoint has already validated it
@@ -105,11 +112,12 @@ async function signup(firstName, lastName, email, password, otp) {
     firstName: firstName.trim(),
     lastName: lastName.trim(),
     email: emailLower,
-    passwordHash: passwordHash
+    passwordHash: passwordHash,
+    role: role || 'EDITOR'
   });
 
   // Generate tokens
-  const token = generateJWT(user._id.toString(), user.email);
+  const token = generateJWT(user._id.toString(), user.email, user.role);
   const refreshToken = generateRefreshToken(user._id.toString(), user.email, false);
 
   // Return user without passwordHash
@@ -313,7 +321,7 @@ async function refreshAccessToken(refreshToken) {
   }
 
   // Generate new access token
-  const token = generateJWT(user._id.toString(), user.email);
+  const token = generateJWT(user._id.toString(), user.email, user.role);
 
   // Return user without passwordHash
   const userObj = user.toObject();

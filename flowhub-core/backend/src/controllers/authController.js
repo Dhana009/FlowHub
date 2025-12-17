@@ -174,7 +174,7 @@ async function verifySignupOTP(req, res, next) {
  */
 async function signup(req, res, next) {
   try {
-    const { firstName, lastName, email, password, otp } = req.body;
+    const { firstName, lastName, email, password, otp, role } = req.body;
 
     // Input validation
     if (!firstName || !lastName || !email || !password || !otp) {
@@ -217,7 +217,7 @@ async function signup(req, res, next) {
     }
 
     // Business logic
-    const result = await authService.signup(firstName, lastName, email, password, otp);
+    const result = await authService.signup(firstName, lastName, email, password, otp, role);
 
     // Set refresh token cookie
     setRefreshTokenCookie(res, result.refreshToken, false);

@@ -101,9 +101,10 @@ async function createItem(itemData, file, userId) {
  * @param {string} itemId - Item ID
  * @param {string} userId - User ID (optional, for ownership check)
  * @param {boolean} includeInactive - Whether to include inactive/deleted items (default: false)
+ * @param {string} role - User role (optional, for ADMIN bypass)
  * @returns {Promise<object|null>} - Item or null if not found
  */
-async function getItemById(itemId, userId = null, includeInactive = false) {
+async function getItemById(itemId, userId = null, includeInactive = false, role = null) {
   const query = { _id: itemId };
   
   // Only filter by is_active if we don't want to include inactive items
@@ -111,7 +112,7 @@ async function getItemById(itemId, userId = null, includeInactive = false) {
     query.is_active = true;
   }
   
-  if (userId) {
+  if (userId && role !== 'ADMIN') {
     query.created_by = userId;
   }
   return await Item.findOne(query);
@@ -248,10 +249,11 @@ function buildSortObject(sortBy, sortOrder) {
  * @param {array} filters.sort_order - Sort orders array
  * @param {number} filters.page - Page number
  * @param {number} filters.limit - Items per page
- * @param {string} userId - User ID (required for data isolation - users can only see their own items)
+ * @param {string} userId - User ID (required for data isolation)
+ * @param {string} role - User role (optional, for ADMIN bypass)
  * @returns {Promise<object>} Items and pagination info
  */
-async function getItems(filters = {}, userId = null) {
+async function getItems(filters = {}, userId = null, role = null) {
   const {
     search,
     status,
@@ -266,8 +268,8 @@ async function getItems(filters = {}, userId = null) {
   const query = {};
 
   // CRITICAL: Filter by user ownership for data isolation
-  // Users can only see items they created
-  if (userId) {
+  // Users can only see items they created, unless they are ADMIN
+  if (userId && role !== 'ADMIN') {
     query.created_by = userId;
   }
 
@@ -347,13 +349,19 @@ async function getItems(filters = {}, userId = null) {
  * @param {object} updateData - Updated item data
  * @param {object} file - Multer file object (optional, for file replacement)
  * @param {string} userId - User ID updating the item
+ * @param {number} providedVersion - Current version of the item
+ * @param {string} role - User role (optional, for ADMIN bypass)
  * @returns {Promise<object>} - Updated item
  * @throws {Error} - If update fails (with statusCode)
  */
-async function updateItem(itemId, updateData, file, userId, providedVersion) {
-  // Step 1: Check ownership (users can only edit their own items)
+async function updateItem(itemId, updateData, file, userId, providedVersion, role = null) {
+  // Step 1: Check ownership (users can only edit their own items, unless they are ADMIN)
   // Return 404 if item doesn't exist or not owned (security: don't reveal item exists)
-  const existingItem = await Item.findOne({ _id: itemId, created_by: userId });
+  const ownershipQuery = { _id: itemId };
+  if (role !== 'ADMIN') {
+    ownershipQuery.created_by = userId;
+  }
+  const existingItem = await Item.findOne(ownershipQuery);
   
   if (!existingItem) {
     const error = new Error(`Item with ID ${itemId} not found`);
@@ -588,14 +596,18 @@ async function updateItem(itemId, updateData, file, userId, providedVersion) {
   }
 
   // Step 11: Update item with optimistic locking (version must match)
+  const updateQuery = { 
+    _id: itemId, 
+    version: versionToVerify,  // Use the verified number
+    is_active: true,  // Double-check active status
+    deleted_at: null  // Double-check not deleted
+  };
+  if (role !== 'ADMIN') {
+    updateQuery.created_by = userId;
+  }
+
   const updatedItem = await Item.findOneAndUpdate(
-    { 
-      _id: itemId, 
-      version: versionToVerify,  // Use the verified number
-      created_by: userId,  // Double-check ownership
-      is_active: true,  // Double-check active status
-      deleted_at: null  // Double-check not deleted
-    },
+    updateQuery,
     updateOperation,
     { new: true, runValidators: true }
   );
@@ -619,16 +631,18 @@ async function updateItem(itemId, updateData, file, userId, providedVersion) {
  * 
  * @param {string} itemId - Item ID
  * @param {string} userId - User ID deleting the item
+ * @param {string} role - User role (optional, for ADMIN bypass)
  * @returns {Promise<object>} - Deleted item
  * @throws {Error} - If deletion fails (with statusCode)
  */
-async function deleteItem(itemId, userId) {
+async function deleteItem(itemId, userId, role = null) {
   // PRD Section 6.3: Step 1 - Check ownership and existence
   // Return 404 if item doesn't exist or not owned (security: don't reveal ownership)
-  const existingItem = await Item.findOne({ 
-    _id: itemId,
-    created_by: userId // Ownership check
-  });
+  const query = { _id: itemId };
+  if (role !== 'ADMIN') {
+    query.created_by = userId; // Ownership check
+  }
+  const existingItem = await Item.findOne(query);
   
   if (!existingItem) {
     // PRD Section 6.3: Return 404 (not 403) to prevent information disclosure
@@ -669,16 +683,18 @@ async function deleteItem(itemId, userId) {
  * 
  * @param {string} itemId - Item ID
  * @param {string} userId - User ID activating the item
+ * @param {string} role - User role (optional, for ADMIN bypass)
  * @returns {Promise<object>} - Activated item
  * @throws {Error} - If activation fails (with statusCode)
  */
-async function activateItem(itemId, userId) {
+async function activateItem(itemId, userId, role = null) {
   // Step 1 - Check ownership and existence
   // Return 404 if item doesn't exist or not owned (security: don't reveal ownership)
-  const existingItem = await Item.findOne({ 
-    _id: itemId,
-    created_by: userId // Ownership check
-  });
+  const query = { _id: itemId };
+  if (role !== 'ADMIN') {
+    query.created_by = userId; // Ownership check
+  }
+  const existingItem = await Item.findOne(query);
   
   if (!existingItem) {
     // Return 404 (not 403) to prevent information disclosure

@@ -14,17 +14,34 @@ const itemService = require('./itemService');
  * Create a new bulk job
  * 
  * @param {string} userId - User ID
+ * @param {string} role - User role
  * @param {string} operation - Operation type
  * @param {array} itemIds - Array of item IDs
  * @param {object} payload - Optional data
  * @returns {Promise<object>} - Created job
  */
-async function createJob(userId, operation, itemIds, payload = {}) {
+async function createJob(userId, role, operation, itemIds, payload = {}) {
   // 1. PRE-EXECUTION ANALYSIS: One bulk query to understand current states
-  const items = await Item.find({ _id: { $in: itemIds }, created_by: userId });
+  // Admin can access all items, others only their own
+  const query = { _id: { $in: itemIds } };
+  if (role !== 'ADMIN') {
+    query.created_by = userId;
+  }
+  const items = await Item.find(query);
   
   const toProcessIds = [];
   const skippedIds = [];
+
+  // Identify which IDs were actually found
+  const foundIds = new Set(items.map(item => item._id.toString()));
+
+  // 1.1 Handle IDs that were NOT found (IDOR attempts or deleted items)
+  // We mark these as skipped so the job can reach completion
+  itemIds.forEach(id => {
+    if (!foundIds.has(id.toString())) {
+      skippedIds.push(id);
+    }
+  });
 
   items.forEach(item => {
     let alreadyInState = false;
@@ -63,13 +80,18 @@ async function createJob(userId, operation, itemIds, payload = {}) {
  * 
  * @param {string} jobId - Job ID
  * @param {string} userId - User ID (for authorization)
+ * @param {string} role - User role
  * @returns {Promise<object>} - Updated job
  */
-async function processNextBatch(jobId, userId) {
+async function processNextBatch(jobId, userId, role) {
   const batchSize = 2;
   
   // 1. GET CURRENT STATE
-  let job = await BulkJob.findOne({ _id: jobId, userId });
+  const query = { _id: jobId };
+  if (role !== 'ADMIN') {
+    query.userId = userId;
+  }
+  let job = await BulkJob.findOne(query);
   if (!job || job.status === 'completed') return job;
 
   // Calculate current progress metrics
@@ -118,12 +140,16 @@ async function processNextBatch(jobId, userId) {
   if (batchToClaim.length === 0) return job;
 
   // 3. ATOMIC CLAIM
+  const claimQuery = { 
+    _id: jobId, 
+    inProgressIds: { $nin: batchToClaim }
+  };
+  if (role !== 'ADMIN') {
+    claimQuery.userId = userId;
+  }
+
   job = await BulkJob.findOneAndUpdate(
-    { 
-      _id: jobId, 
-      userId,
-      inProgressIds: { $nin: batchToClaim }
-    },
+    claimQuery,
     { 
       $addToSet: { inProgressIds: { $each: batchToClaim } },
       $set: { status: 'processing' }
@@ -131,7 +157,7 @@ async function processNextBatch(jobId, userId) {
     { new: true }
   );
 
-  if (!job) return await BulkJob.findOne({ _id: jobId, userId });
+  if (!job) return await BulkJob.findOne(query);
 
   // 4. PROCESS BATCH
   for (const itemId of batchToClaim) {
@@ -145,9 +171,11 @@ async function processNextBatch(jobId, userId) {
 
       if (!alreadyMatches) {
         if (job.operation === 'delete' || job.operation === 'deactivate') {
-          await itemService.deleteItem(itemId.toString(), userId);
+          // Pass ADMIN role to item service to bypass ownership
+          await itemService.deleteItem(itemId.toString(), userId, role);
         } else if (job.operation === 'activate') {
-          await itemService.activateItem(itemId.toString(), userId);
+          // Pass ADMIN role to item service to bypass ownership
+          await itemService.activateItem(itemId.toString(), userId, role);
         }
       }
 
@@ -177,14 +205,22 @@ async function processNextBatch(jobId, userId) {
     }
   }
 
-  return await BulkJob.findOne({ _id: jobId, userId });
+  return await BulkJob.findOne(query);
 }
 
 /**
  * Get job by ID
+ * 
+ * @param {string} jobId - Job ID
+ * @param {string} userId - User ID
+ * @param {string} role - User role
  */
-async function getJobById(jobId, userId) {
-  return await BulkJob.findOne({ _id: jobId, userId });
+async function getJobById(jobId, userId, role) {
+  const query = { _id: jobId };
+  if (role !== 'ADMIN') {
+    query.userId = userId;
+  }
+  return await BulkJob.findOne(query);
 }
 
 module.exports = {

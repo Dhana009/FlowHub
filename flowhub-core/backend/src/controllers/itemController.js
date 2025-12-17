@@ -301,8 +301,8 @@ async function getItems(req, res, next) {
       limit
     };
 
-    // Get items from service - pass userId for data isolation
-    const result = await itemService.getItems(filters, userId);
+    // Get items from service - pass userId and role for data isolation
+    const result = await itemService.getItems(filters, userId, req.user.role);
 
     // Check if page needs redirection (page > totalPages)
     if (page > result.pagination.total_pages && result.pagination.total_pages > 0) {
@@ -386,7 +386,8 @@ async function getItem(req, res, next) {
 
     // Get item from service (no user filtering - any authenticated user can view)
     // Include inactive items so View button works for deleted items
-    const item = await itemService.getItemById(itemId, null, true);
+    // Pass role to allow Admin to bypass any hidden filters
+    const item = await itemService.getItemById(itemId, null, true, req.user?.role);
 
     // Handle not found (PRD Section 9: 404 Not Found)
     if (!item) {
@@ -447,6 +448,7 @@ async function updateItem(req, res, next) {
   try {
     const itemId = req.params.id;
     const userId = req.user?.id || req.user?.userId; // Support both id and userId
+    const userRole = req.user?.role;
     const file = req.file || null;
 
     // Validate item ID format
@@ -472,7 +474,7 @@ async function updateItem(req, res, next) {
     delete itemData.version; // Remove version from itemData, handled separately
 
     // Update item via service
-    const updatedItem = await itemService.updateItem(itemId, itemData, file, userId, providedVersion);
+    const updatedItem = await itemService.updateItem(itemId, itemData, file, userId, providedVersion, userRole);
 
     // Format and return updated item
     const formattedItem = formatItemResponse(updatedItem);
@@ -568,7 +570,7 @@ async function deleteItem(req, res, next) {
     }
 
     // PRD Section 6.2 & 6.3: Delete item via service (ownership + soft delete)
-    const deletedItem = await itemService.deleteItem(itemId, userId);
+    const deletedItem = await itemService.deleteItem(itemId, userId, req.user?.role);
 
     // PRD Section 8: Format and return deleted item (200 OK)
     const formattedItem = formatItemResponse(deletedItem);
@@ -654,7 +656,7 @@ async function activateItem(req, res, next) {
     }
 
     // Activate item via service
-    const activatedItem = await itemService.activateItem(itemId, userId);
+    const activatedItem = await itemService.activateItem(itemId, userId, req.user?.role);
 
     // Format and return activated item
     const formattedItem = formatItemResponse(activatedItem);

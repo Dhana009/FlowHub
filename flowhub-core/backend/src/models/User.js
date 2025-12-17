@@ -56,6 +56,17 @@ const userSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
     default: null
+  },
+  role: {
+    type: String,
+    enum: ['ADMIN', 'EDITOR', 'VIEWER'],
+    default: 'EDITOR',
+    required: true,
+    index: true
+  },
+  roleChangedAt: {
+    type: Date,
+    default: Date.now
   }
 }, {
   timestamps: true, // Automatically adds createdAt and updatedAt

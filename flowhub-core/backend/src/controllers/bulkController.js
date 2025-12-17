@@ -15,6 +15,7 @@ async function startBulkOperation(req, res, next) {
   try {
     const { operation, itemIds, payload } = req.body;
     const userId = req.user.id;
+    const userRole = req.user.role;
 
     if (!operation || !itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
       return res.status(400).json({
@@ -24,7 +25,7 @@ async function startBulkOperation(req, res, next) {
       });
     }
 
-    const job = await bulkService.createJob(userId, operation, itemIds, payload);
+    const job = await bulkService.createJob(userId, userRole, operation, itemIds, payload);
 
     res.status(201).json({
       status: 'success',
@@ -46,9 +47,10 @@ async function getBulkJobStatus(req, res, next) {
   try {
     const { jobId } = req.params;
     const userId = req.user.id;
+    const userRole = req.user.role;
 
     // processNextBatch performs the lazy processing and returns updated job
-    const job = await bulkService.processNextBatch(jobId, userId);
+    const job = await bulkService.processNextBatch(jobId, userId, userRole);
 
     res.status(200).json({
       status: 'success',

@@ -38,7 +38,8 @@ function verifyToken(req, res, next) {
     // Attach user info to request
     req.user = {
       id: decoded.sub,
-      email: decoded.email
+      email: decoded.email,
+      role: decoded.role
     };
 
     next();

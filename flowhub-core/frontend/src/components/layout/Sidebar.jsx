@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
+import useAuth from '../../hooks/useAuth';
 
 /**
  * Sidebar Component
@@ -15,6 +16,7 @@ import { useLocation } from 'react-router-dom';
 export default function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { canPerform } = useAuth();
 
   const navigation = [
     {
@@ -64,26 +66,28 @@ export default function Sidebar({ isOpen, onClose }) {
           </div>
 
           {/* Create Item Button - Prominent */}
-          <div className="px-4 py-4 border-b border-slate-700/50">
-            <button
-              onClick={() => navigate('/items/create')}
-              className="
-                w-full flex items-center justify-center gap-2.5 px-4 py-3.5
-                bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800
-                text-white text-base font-semibold leading-normal
-                rounded-xl shadow-md hover:shadow-lg
-                focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-800
-                transition-all duration-200
-              "
-              title="Create Item"
-              data-testid="sidebar-create-item-button"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span>Create Item</span>
-            </button>
-          </div>
+          {canPerform('create') && (
+            <div className="px-4 py-4 border-b border-slate-700/50">
+              <button
+                onClick={() => navigate('/items/create')}
+                className="
+                  w-full flex items-center justify-center gap-2.5 px-4 py-3.5
+                  bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800
+                  text-white text-base font-semibold leading-normal
+                  rounded-xl shadow-md hover:shadow-lg
+                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-800
+                  transition-all duration-200
+                "
+                title="Create Item"
+                data-testid="sidebar-create-item-button"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Create Item</span>
+              </button>
+            </div>
+          )}
 
           {/* Navigation Items */}
           <nav className="flex-1 px-3 py-4 overflow-y-auto">
@@ -147,28 +151,30 @@ export default function Sidebar({ isOpen, onClose }) {
             </div>
 
             {/* Mobile Create Item Button */}
-            <div className="px-5 py-4 border-b border-slate-700/50">
-              <button
-                onClick={() => {
-                  navigate('/items/create');
-                  onClose();
-                }}
-                className="
-                  w-full flex items-center justify-center gap-2 px-4 py-3.5
-                  bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800
-                  text-white text-sm font-semibold
-                  rounded-xl shadow-md hover:shadow-lg
-                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-800
-                  transition-all duration-200
-                "
-                data-testid="mobile-sidebar-create-item-button"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                <span>Create Item</span>
-              </button>
-            </div>
+            {canPerform('create') && (
+              <div className="px-5 py-4 border-b border-slate-700/50">
+                <button
+                  onClick={() => {
+                    navigate('/items/create');
+                    onClose();
+                  }}
+                  className="
+                    w-full flex items-center justify-center gap-2 px-4 py-3.5
+                    bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800
+                    text-white text-sm font-semibold
+                    rounded-xl shadow-md hover:shadow-lg
+                    focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-800
+                    transition-all duration-200
+                  "
+                  data-testid="mobile-sidebar-create-item-button"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>Create Item</span>
+                </button>
+              </div>
+            )}
 
             {/* Mobile Navigation */}
             <div className="flex-1 pt-4 pb-4 overflow-y-auto">

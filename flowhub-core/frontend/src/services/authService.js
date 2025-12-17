@@ -54,7 +54,7 @@ export async function signupVerifyOTP(email, otp) {
 /**
  * Complete signup
  * 
- * @param {object} userData - User data (firstName, lastName, email, password)
+ * @param {object} userData - User data (firstName, lastName, email, password, role)
  * @param {string} otp - 6-digit OTP
  * @returns {Promise<{token: string, user: object}>}
  */
@@ -62,7 +62,8 @@ export async function signup(userData, otp) {
   const response = await api.post('/auth/signup', {
     ...userData,
     email: userData.email.toLowerCase(),
-    otp
+    otp,
+    role: userData.role // Optional role (ADMIN, EDITOR, VIEWER)
   });
   return response.data;
 }

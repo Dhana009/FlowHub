@@ -22,12 +22,14 @@ if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
  * 
  * @param {string} userId - User ID
  * @param {string} email - User email
+ * @param {string} role - User role
  * @returns {string} - JWT token
  */
-function generateJWT(userId, email) {
+function generateJWT(userId, email, role) {
   const payload = {
     sub: userId,
     email: email,
+    role: role,
     type: 'access'
   };
 

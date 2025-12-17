@@ -13,6 +13,13 @@ import api, { setTokenFunctions } from '../services/api';
 
 const AuthContext = createContext(null);
 
+// Role Hierarchy
+const ROLE_LEVELS = {
+  'ADMIN': 3,
+  'EDITOR': 2,
+  'VIEWER': 1
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
@@ -185,6 +192,53 @@ export const AuthProvider = ({ children }) => {
   }, [clearAuth]);
 
   /**
+   * RBAC Helper: Check if user has required role level
+   */
+  const hasRole = useCallback((requiredRole) => {
+    if (!user || !user.role) return false;
+    return ROLE_LEVELS[user.role] >= ROLE_LEVELS[requiredRole];
+  }, [user]);
+
+  /**
+   * RBAC Helper: Check if user can perform action on resource
+   * 
+   * @param {string} action - 'create', 'edit', 'delete', 'view'
+   * @param {object} resource - The item or object to check ownership for
+   */
+  const canPerform = useCallback((action, resource = null) => {
+    if (!user || !user.role) return false;
+
+    // ADMIN can do everything
+    if (user.role === 'ADMIN') return true;
+
+    switch (action) {
+      case 'create':
+        return user.role === 'EDITOR';
+      
+      case 'edit':
+      case 'delete':
+      case 'activate':
+      case 'deactivate':
+        // EDITOR can edit/delete if they own the resource
+        if (user.role === 'EDITOR') {
+          if (!resource) return true; // Permission to see the button generally
+          const ownerId = resource.created_by || resource.userId;
+          return ownerId === user.id || ownerId === user._id;
+        }
+        return false;
+
+      case 'bulk':
+        return user.role === 'EDITOR' || user.role === 'ADMIN';
+
+      case 'view':
+        return true; // All authenticated users can view
+
+      default:
+        return false;
+    }
+  }, [user]);
+
+  /**
    * Check if user is authenticated
    */
   const isAuthenticated = !!token && !!user;
@@ -196,7 +250,9 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     login,
     logout,
-    refreshToken
+    refreshToken,
+    hasRole,
+    canPerform
   };
 
   return (

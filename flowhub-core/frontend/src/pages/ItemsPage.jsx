@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getItems, deleteItem, activateItem, startBulkOperation } from '../services/itemService';
+import useAuth from '../hooks/useAuth';
 import Button from '../components/common/Button';
 import ErrorMessage from '../components/common/ErrorMessage';
 import Input from '../components/common/Input';
@@ -19,6 +20,7 @@ import BulkOperationModal from '../components/items/BulkOperationModal';
 export default function ItemsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { canPerform } = useAuth();
 
   // State
   const [items, setItems] = useState([]);
@@ -778,8 +780,8 @@ export default function ItemsPage() {
                             >
                               View
                             </button>
-                            {/* Only show Edit button for active items */}
-                            {item.is_active && (
+                            {/* Only show Edit button if user has permission */}
+                            {item.is_active && canPerform('edit', item) && (
                               <button
                                 onClick={() => navigate(`/items/${item._id}/edit`)}
                                 className="text-indigo-600 hover:text-indigo-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-lg px-3 py-1.5 transition-colors duration-150"
@@ -790,8 +792,8 @@ export default function ItemsPage() {
                                 Edit
                               </button>
                             )}
-                            {/* Show Deactivate button for active items, Activate button for deleted items */}
-                            {item.is_active ? (
+                            {/* Show Deactivate button if user has permission */}
+                            {item.is_active && canPerform('deactivate', item) ? (
                               <button
                                 onClick={(e) => handleDeleteItem(item, e)}
                                 className="text-red-600 hover:text-red-700 font-medium focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded-lg px-3 py-1.5 transition-colors duration-150"
@@ -801,7 +803,7 @@ export default function ItemsPage() {
                               >
                                 Deactivate
                               </button>
-                            ) : (
+                            ) : !item.is_active && canPerform('activate', item) ? (
                               <button
                                 onClick={() => handleActivateItem(item)}
                                 className="text-emerald-600 hover:text-emerald-700 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 rounded-lg px-3 py-1.5 transition-colors duration-150"
@@ -811,7 +813,7 @@ export default function ItemsPage() {
                               >
                                 Activate
                               </button>
-                            )}
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -934,12 +936,14 @@ export default function ItemsPage() {
       />
 
       {/* Bulk Operations Components (Flow 7) */}
-      <BulkActionsBar 
-        selectedCount={selectedItems.length}
-        onBulkDeactivate={() => handleStartBulkJob('deactivate')}
-        onBulkActivate={() => handleStartBulkJob('activate')}
-        onClearSelection={() => setSelectedItems([])}
-      />
+      {canPerform('bulk') && (
+        <BulkActionsBar 
+          selectedCount={selectedItems.length}
+          onBulkDeactivate={() => handleStartBulkJob('deactivate')}
+          onBulkActivate={() => handleStartBulkJob('activate')}
+          onClearSelection={() => setSelectedItems([])}
+        />
+      )}
 
       <BulkOperationModal
         isOpen={isBulkModalOpen}
