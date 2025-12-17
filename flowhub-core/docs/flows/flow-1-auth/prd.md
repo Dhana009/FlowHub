@@ -59,7 +59,7 @@ Users need a secure way to access FlowHub. Without authentication, there's no wa
 10. System stores tokens securely:
     - JWT stored in memory (React state)
     - Refresh token stored in httpOnly cookie (7 days if Remember Me unchecked, 30 days if checked)
-11. System redirects user to Item List page
+11. System redirects user to Dashboard page
 12. User can now access FlowHub features
 
 ### **Password Reset Flow (3-Step Process):**
@@ -145,7 +145,7 @@ Users need a secure way to access FlowHub. Without authentication, there's no wa
     - JWT stored in memory (React state)
     - Refresh token stored in httpOnly cookie (7 days)
 26. System automatically logs in user (token set in AuthContext)
-27. System redirects user to Item List page
+27. System redirects user to Dashboard page
 
 ### **Logout Flow:**
 1. User clicks "Logout" button
@@ -183,7 +183,7 @@ Users need a secure way to access FlowHub. Without authentication, there's no wa
 - **Session Timeout:** No auto-logout - session persists until user logs out or refresh token expires
 - **Remember Me:** Only affects refresh token cookie expiration (30 days instead of 7 days). JWT always stored in memory regardless of Remember Me setting.
 - **Page Refresh:** Session automatically restored via `/auth/refresh` endpoint using refresh token cookie
-- **Browser Close/Reopen:** If user closes browser and reopens, session is automatically restored via `/auth/refresh` endpoint (if refresh token cookie is still valid). User is automatically taken to dashboard (Item List page) without needing to log in again.
+- **Browser Close/Reopen:** If user closes browser and reopens, session is automatically restored via `/auth/refresh` endpoint (if refresh token cookie is still valid). User is automatically taken to dashboard without needing to log in again.
 - **Token Validation:** If JWT token is invalid/expired and refresh token is also invalid/expired, user is automatically redirected to login page. User cannot access any protected routes without valid authentication.
 
 ---

@@ -1,93 +1,65 @@
 # PRD: Flow 7 - Bulk Operations (The Scale & Efficiency Flow)
 
-**Version:** 1.0 (Initial Draft)  
-**Status:** 🏗️ DRAFTING  
-**SDET Value:** HIGH (Covers Polling, Scale, and Resilience)
+**Version:** 1.1 (Updated)  
+**Status:** ✅ FINALIZED  
+**SDET Value:** HIGH (Covers Polling, Scale, Resilience, and Concurrency)
 
 ---
 
 ## 1. Overview
-FlowHub users need a way to manage large datasets without modifying items one by one. This flow allows users to select multiple items and perform "Bulk Delete" or "Bulk Category Update." 
+FlowHub users need a way to manage large datasets without modifying items one by one. This flow allows users to select multiple items and perform **"Bulk Deactivate"** or **"Bulk Activate"**.
 
-To work within **free-tier limits (Vercel/Render)**, this flow uses **HTTP Polling**. The UI will "ask" the server for status updates rather than maintaining a constant WebSocket connection.
-
----
-
-## 2. User Story
-**As a** power user with many items,  
-**I want to** update or delete multiple items at once,  
-**So that** I can save time and keep my workspace organized.
+To work within **free-tier limits (Vercel/Render)**, this flow uses **Lazy processing via HTTP Polling**. The server processes a small batch of items during each status check, avoiding long-running request timeouts.
 
 ---
 
-## 3. User Journey
+## 2. User Journey
 
 ### Phase 1: Selection
 1. User navigates to the **Item List**.
-2. User selects multiple items via **checkboxes** in each row.
-3. A **Bulk Actions Bar** appears at the top (or bottom) showing the count: *"3 items selected"*.
-4. User clicks **"Bulk Delete"** or **"Update Category"**.
+2. User selects multiple items via **checkboxes**.
+3. A **Bulk Actions Bar** appears at the bottom showing the count: *"3 items selected"*.
+4. User clicks **"Bulk Deactivate"** or **"Bulk Activate"**.
 
-### Phase 2: Configuration & Confirmation
-1. **If Bulk Delete:** A confirmation modal appears: *"Are you sure you want to delete 3 items?"*
-2. **If Bulk Update:** A modal appears asking the user to select the **New Category**.
-3. User clicks **"Start Process"**.
+### Phase 2: Processing (The Polling Phase)
+1. The **Bulk Operation Modal** appears.
+2. A **Progress Bar** (h-3, indigo) appears.
+3. **Pre-Execution Analysis:** The system immediately identifies items already in the target state and marks them as "Skipped." The progress bar jumps forward instantly to reflect this.
+4. **Polling starts:** Every 2 seconds, the frontend calls the status API.
+5. The Progress Bar updates smoothly (e.g., 33% -> 66% -> 100%) as items are processed in batches of 2.
 
-### Phase 3: Processing (The Polling Phase)
-1. The modal changes to a **Progress State**.
-2. A **Progress Bar** appears (0%).
-3. The frontend calls the API to start the job and receives a `job_id`.
-4. **Polling starts:** Every 2 seconds, the frontend calls `/api/bulk-operations/{job_id}/status`.
-5. The Progress Bar updates (e.g., 33% -> 66% -> 100%).
-
-### Phase 4: Completion & Summary
-1. Once polling returns `completed`, the modal shows a **Summary Report**:
-   - ✅ **Success:** Count of successful items.
-   - ❌ **Failed:** Count of failed items (if any).
-2. User clicks "Close" and the Item List **automatically refreshes**.
+### Phase 3: Completion & Summary
+1. Once polling returns `completed`, the modal shows a **Transparent Summary Report**:
+   - ✅ **Actually Updated:** Count of items that changed state.
+   - ⏭️ **Already in State (Skipped):** Count of items that were already correct.
+   - ❌ **Failed:** Count of failed items with specific error details.
+2. User clicks **"Done"** and the Item List **automatically refreshes**.
 
 ---
 
-## 4. Technical Logic (Polling Strategy)
+## 3. Technical Architecture (Resilience & Scalability)
 
-### API Endpoints:
-1.  `POST /api/bulk-operations`: Starts the job. Returns `job_id`.
-2.  `GET /api/bulk-operations/{job_id}/status`: Returns the current progress.
-    ```json
-    {
-      "status": "processing",
-      "progress_percent": 60,
-      "completed_count": 6,
-      "total_count": 10,
-      "failed_items": []
-    }
-    ```
+### 3.1 Lazy Processing Strategy
+Instead of a single long request, processing is distributed across multiple polling requests. Each `GET /status` request claims and processes **2 items**.
 
-### Error Handling:
--   **Partial Failure:** If 10 items are selected and 1 fails, the job continues. The final report will show 9 success and 1 failure.
--   **Timeout:** If polling takes longer than 60 seconds, the frontend shows a "Taking longer than expected" message with a retry option.
+### 3.2 Concurrency & Safety
+*   **Hard-Locking Atomic Queue:** Uses MongoDB `$addToSet` and `$pull` on an `inProgressIds` array to ensure no item is ever processed twice, even with aggressive polling.
+*   **Idempotency:** Operations are success-oriented. If an item is already deactivated, a "Deactivate" request is considered a success (skipped), not a failure.
+*   **Self-Healing Engine:** If an item gets stuck in `inProgressIds` (e.g., due to a server crash), the system automatically reclaims and re-processes it after a 10-second timeout.
+*   **Security Deadlock Prevention:** If an Editor provides IDs of items they don't own, the system immediately marks them as "Skipped" (Inaccessible) to allow the job to complete while maintaining data isolation.
 
 ---
 
-## 5. SDET Showcase (The Automation Plan)
+## 4. SDET Showcase (The Automation Plan)
 
-When we automate this, we will write **3 specific tests** that will look amazing on your resume:
-
-1.  **The "Async Polling" Test:** Use Playwright’s `expect.poll()` to wait for the progress bar to reach 100% without using a single `sleep()`.
-2.  **The "Partial Failure" Test:** Use `page.route()` to intercept the polling API and **inject a failure** for one item. Verify that the UI correctly shows *"1 item failed"*.
-3.  **The "Data Integrity" Test:** 
-    - Create 20 items via API.
-    - Bulk Delete them via UI.
-    - Call the API one last time to verify the total count is exactly 0.
+1.  **The "Async Polling" Test:** Use Playwright’s `expect.poll()` to wait for 100% completion without using fixed `sleep()`.
+2.  **The "Partial Failure" Test:** Use `page.route()` to inject a `500` error for one specific item ID and verify the failure report.
+3.  **The "Race Condition" Test:** Trigger two polling loops simultaneously and verify that no item is processed twice (Atomic check).
+4.  **The "Security Boundary" Test:** Try to include an Admin's item ID in an Editor's bulk job and verify it is correctly "Skipped" and not modified.
 
 ---
 
-## 6. Out of Scope
--   Bulk Edit of descriptions (only Category and Delete for now).
--   Bulk File Upload (too complex for free tier).
--   Canceling a job halfway (we will add this in Phase C if needed).
-
----
-
-**Next Step:** I will now create the Functional Specification (FS) for the backend developers (you!) to implement these endpoints. Shall we proceed?
-
+## 5. Success Criteria
+*   Jobs reach 100% completion even if some items fail or are inaccessible.
+*   Progress bar reflects real-time status accurately.
+*   Database state matches the final summary report perfectly.

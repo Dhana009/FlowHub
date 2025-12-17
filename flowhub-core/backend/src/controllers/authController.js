@@ -51,16 +51,20 @@ async function login(req, res, next) {
     // Input validation
     if (!email || !password) {
       return res.status(400).json({
-        error: 'Email and password are required',
-        statusCode: 400
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: 'Email and password are required'
       });
     }
 
     const emailError = validateEmail(email);
     if (emailError) {
       return res.status(422).json({
-        error: emailError,
-        statusCode: 422
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: emailError
       });
     }
 
@@ -91,16 +95,20 @@ async function requestSignupOTP(req, res, next) {
     // Input validation
     if (!email) {
       return res.status(400).json({
-        error: 'Email is required',
-        statusCode: 400
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: 'Email is required'
       });
     }
 
     const emailError = validateEmail(email);
     if (emailError) {
       return res.status(422).json({
-        error: emailError,
-        statusCode: 422
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: emailError
       });
     }
 
@@ -135,8 +143,10 @@ async function verifySignupOTP(req, res, next) {
     // Input validation
     if (!email || !otp) {
       return res.status(400).json({
-        error: 'Email and OTP are required',
-        statusCode: 400
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: 'Email and OTP are required'
       });
     }
 
@@ -151,8 +161,10 @@ async function verifySignupOTP(req, res, next) {
     const otpError = validateOTP(otp);
     if (otpError) {
       return res.status(422).json({
-        error: otpError,
-        statusCode: 422
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: otpError
       });
     }
 
@@ -179,24 +191,30 @@ async function signup(req, res, next) {
     // Input validation
     if (!firstName || !lastName || !email || !password || !otp) {
       return res.status(400).json({
-        error: 'All fields are required',
-        statusCode: 400
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: 'All fields are required'
       });
     }
 
     const firstNameError = validateName(firstName, 'First name');
     if (firstNameError) {
       return res.status(422).json({
-        error: firstNameError,
-        statusCode: 422
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: firstNameError
       });
     }
 
     const lastNameError = validateName(lastName, 'Last name');
     if (lastNameError) {
       return res.status(422).json({
-        error: lastNameError,
-        statusCode: 422
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: lastNameError
       });
     }
 
@@ -211,8 +229,10 @@ async function signup(req, res, next) {
     const otpError = validateOTP(otp);
     if (otpError) {
       return res.status(422).json({
-        error: otpError,
-        statusCode: 422
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: otpError
       });
     }
 
@@ -250,16 +270,20 @@ async function requestPasswordResetOTP(req, res, next) {
     // Input validation
     if (!email) {
       return res.status(400).json({
-        error: 'Email is required',
-        statusCode: 400
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: 'Email is required'
       });
     }
 
     const emailError = validateEmail(email);
     if (emailError) {
       return res.status(422).json({
-        error: emailError,
-        statusCode: 422
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: emailError
       });
     }
 
@@ -287,8 +311,10 @@ async function verifyPasswordResetOTP(req, res, next) {
     // Input validation
     if (!email || !otp) {
       return res.status(400).json({
-        error: 'Email and OTP are required',
-        statusCode: 400
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: 'Email and OTP are required'
       });
     }
 
@@ -303,8 +329,10 @@ async function verifyPasswordResetOTP(req, res, next) {
     const otpError = validateOTP(otp);
     if (otpError) {
       return res.status(422).json({
-        error: otpError,
-        statusCode: 422
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: otpError
       });
     }
 
@@ -347,8 +375,10 @@ async function resetPassword(req, res, next) {
     const otpError = validateOTP(otp);
     if (otpError) {
       return res.status(422).json({
-        error: otpError,
-        statusCode: 422
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: otpError
       });
     }
 
@@ -374,8 +404,10 @@ async function refreshToken(req, res, next) {
 
     if (!refreshToken) {
       return res.status(401).json({
-        error: 'Refresh token not found',
-        statusCode: 401
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Refresh token not found'
       });
     }
 
@@ -393,8 +425,10 @@ async function refreshToken(req, res, next) {
     
     if (error.message.includes('expired') || error.message.includes('invalid')) {
       return res.status(401).json({
-        error: 'Refresh token expired or invalid',
-        statusCode: 401
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Refresh token expired or invalid'
       });
     }
     

@@ -109,21 +109,21 @@ export default function UsersPage() {
               </thead>
               <tbody className="bg-white divide-y divide-slate-200">
                 {users.map((u) => (
-                  <tr key={u._id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={u._id} data-testid={`user-row-${u._id}`} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-slate-900">
+                      <div className="text-sm font-medium text-slate-900" data-testid={`user-name-${u._id}`}>
                         {u.firstName} {u.lastName}
                         {u._id === currentUser?.id && <span className="ml-2 text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-600 uppercase font-bold">You</span>}
                       </div>
-                      <div className="text-xs text-slate-500">{u.email}</div>
+                      <div className="text-xs text-slate-500" data-testid={`user-email-${u._id}`}>{u.email}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getRoleBadgeColor(u.role)}`}>
+                      <span data-testid={`user-role-badge-${u._id}`} className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getRoleBadgeColor(u.role)}`}>
                         {u.role}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${u.isActive !== false ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                      <span data-testid={`user-status-${u._id}`} className={`px-2 py-0.5 rounded text-xs font-medium ${u.isActive !== false ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
                         {u.isActive !== false ? 'Active' : 'Deactivated'}
                       </span>
                     </td>
@@ -134,6 +134,7 @@ export default function UsersPage() {
                             value={u.role}
                             onChange={(e) => handleRoleChange(u._id, e.target.value)}
                             disabled={u._id === currentUser?.id || u._id === currentUser?._id || updatingUserId === u._id}
+                            data-testid={`change-role-select-${u._id}`}
                             className={`
                               w-full text-xs font-semibold py-1.5 pl-2 pr-8 border-slate-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 
                               disabled:bg-slate-50 disabled:text-slate-400 transition-opacity duration-200
@@ -158,6 +159,7 @@ export default function UsersPage() {
                         <Button
                           variant={u.isActive === false ? "success" : "secondary"}
                           size="sm"
+                          dataTestid={`toggle-status-button-${u._id}`}
                           className={u.isActive === false 
                             ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 w-full justify-center" 
                             : "text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 w-full justify-center"

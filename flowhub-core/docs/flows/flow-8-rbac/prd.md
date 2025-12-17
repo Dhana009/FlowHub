@@ -1,58 +1,65 @@
 # PRD - Flow 8: Multi-Role Access Control (RBAC)
 
+**Version:** 1.1 (Updated)  
+**Status:** ✅ FINALIZED  
+**SDET Value:** CRITICAL (Security Automation & Permission Matrix)
+
+---
+
 ## 1. Executive Summary
-The goal of this flow is to implement a robust **Role-Based Access Control (RBAC)** system. This will transform FlowHub Core from a single-user CRUD app into an enterprise-grade multi-tenant platform. This feature is specifically designed to showcase **Security Automation** and **Complex Permission Matrix Testing** for a Senior SDET role.
+The goal of this flow is to implement a robust **Role-Based Access Control (RBAC)** system. This feature transforms FlowHub Core into an enterprise-ready platform and allows SDETs to showcase **Security Boundary Testing** and **Data Isolation validation**.
+
+---
 
 ## 2. Personas (The Roles)
-We will implement three distinct user roles with varying levels of authority:
 
-1.  **ADMIN**: The "Superuser." Can perform every action in the system, including high-leverage bulk operations.
-2.  **EDITOR**: The "Standard Worker." Can manage their own content (Create/Read/Update/Deactivate), but is forbidden from performing bulk destructive actions or global settings.
-3.  **VIEWER**: The "Read-Only User." Can explore the dashboard and item details but cannot modify any data or see action-oriented UI elements.
+1.  **ADMIN**: The "Superuser." Can manage all items, view all activity logs, and manage user roles/accounts.
+2.  **EDITOR**: The "Standard Worker." Can manage their own content (Create/Read/Update/Deactivate) and perform bulk operations on their own items.
+3.  **VIEWER**: The "Read-Only User." Can explore the dashboard, item details, and their own activity logs but cannot modify any data.
+
+---
 
 ## 3. Permission Matrix (The Source of Truth)
 
 | Feature | ADMIN | EDITOR | VIEWER |
 | :--- | :---: | :---: | :---: |
 | **Login / Profile** | ✅ | ✅ | ✅ |
-| **View Item List** | ✅ | ✅ | ✅ |
-| **View Item Details** | ✅ | ✅ | ✅ |
+| **View Item List** | ✅ (All) | ✅ (All) | ✅ (All) |
+| **View Item Details** | ✅ (All) | ✅ (All) | ✅ (All) |
 | **Create New Item** | ✅ | ✅ | ❌ |
-| **Edit Item** | ✅ | ✅ (Own Only) | ❌ |
-| **Deactivate Item** | ✅ | ✅ (Own Only) | ❌ |
-| **Activate Item** | ✅ | ✅ (Own Only) | ❌ |
-| **Bulk Operations** | ✅ | ❌ | ❌ |
+| **Edit Item** | ✅ (All) | ✅ (Own Only) | ❌ |
+| **Deactivate/Activate Item** | ✅ (All) | ✅ (Own Only) | ❌ |
+| **Bulk Operations** | ✅ (All) | ✅ (Own Only) | ❌ |
+| **View Activity Logs** | ✅ (All) | ✅ (Own Only) | ✅ (Own Only) |
+| **User Management** | ✅ | ❌ | ❌ |
 
-## 4. Technical Requirements
+---
 
-### 4.1 Backend Security (The "Security Guard")
-*   **User Schema:** Add a `role` field with values: `ADMIN`, `EDITOR`, `VIEWER` (Default: `EDITOR`).
-*   **Authorization Middleware:** A central `authorize(...roles)` function to guard Express routes.
-*   **Route Locking:**
-    *   `POST /api/v1/items`: Allowed for `ADMIN`, `EDITOR`.
-    *   `PUT /api/v1/items/:id`: Allowed for `ADMIN`, or `EDITOR` (with ownership check).
-    *   `DELETE /api/v1/items/:id`: Allowed for `ADMIN`, or `EDITOR` (with ownership check).
-    *   `POST /api/v1/bulk-operations`: **ADMIN ONLY**.
-*   **HTTP 403 Forbidden:** The API must return a clear 403 error if a user tries to call a route they are not authorized for.
+## 4. Technical Architecture
 
-### 4.2 Frontend Adaptability (The "Invisible UI")
-*   **Role-Based Rendering:** The UI must hide buttons/features that the current user cannot access.
-    *   `VIEWER`: Cannot see "Create Item," "Edit," "Deactivate," or "Activate" buttons.
-    *   `EDITOR`: Cannot see the "Bulk Actions" bar even if items are selected.
-*   **State Awareness:** The frontend must receive the `role` during login and store it securely in the `AuthContext`.
+### 4.1 Real-Time Security Guard (`authMiddleware.js`)
+Unlike standard stateless JWTs, FlowHub implements a **Real-Time Database Presence Check**. For every request, the system verifies that the user ID in the token still exists in the database and `isActive` is `true`. This allows immediate session termination if a user is deleted or deactivated.
 
-## 5. SDET Automation Showcase (The "Killer Scenarios")
-This flow allows for the implementation of high-value automation cases:
+### 4.2 Authorization Engine (`rbacMiddleware.js`)
+A centralized middleware that handles:
+*   **Role Validation:** Ensures user belongs to allowed roles.
+*   **Ownership Check (IDOR Prevention):** Verifies that non-admins can only modify resources they created.
+*   **Security Masking:** Returns `404 Not Found` instead of `403 Forbidden` for inaccessible items to prevent information leakage (Resource existence discovery).
 
-1.  **Positive Role Validation:** Log in as each role and verify that authorized buttons are present.
-2.  **Negative UI Validation (Masking):** Verify that a `VIEWER` physically cannot see the "Create Item" button.
-3.  **Cross-Role API Breaking:** Log in as a `VIEWER`, grab a valid JWT, and try to manually `POST` to `/api/v1/bulk-operations`. Verify the system returns `403 Forbidden`.
-4.  **Ownership Conflict:** Verify that `EDITOR_A` cannot edit an item created by `EDITOR_B` (Data Isolation).
-5.  **Permission Escalation Prevention:** Verify that a user cannot change their own role via the `PUT /profile` API (if implemented).
+### 4.3 UI Adaptability
+The frontend uses `useAuth().canPerform(action, resource)` to dynamically hide UI elements (buttons, sidebars) and prevent unauthorized interactions at the component level.
 
-## 6. Success Criteria
-*   The system accurately distinguishes between roles at both the API and UI layers.
-*   The "Bulk Operations" feature is safely locked to Admins only.
-*   A "Viewer" has a 100% read-only experience.
-*   Automation suite can execute a "Permission Matrix" test that validates all 24 combinations in the table above.
+---
 
+## 5. Security Guardrails (The "Senior" Layer)
+*   **Self-Protection:** Admins are forbidden from deactivating or demoting their own accounts via the API.
+*   **Audit Trail Integration:** Every unauthorized access attempt (IDOR or Role violation) is automatically logged in the `ActivityLog` for security audits.
+*   **Role Change Propagation:** When a user's role is changed, the system forces a token refresh on the next request to apply new permissions.
+
+---
+
+## 6. SDET Automation Strategy
+1.  **Permission Matrix Suite:** A data-driven test that logs in as each role and validates access to every core API endpoint.
+2.  **IDOR Attack Simulation:** Verifying that `Editor_A` cannot modify `Item_B` even if they have the direct UUID.
+3.  **Real-Time Revocation Test:** Automate deleting a user from the DB while they have an active session and verify their next request is blocked.
+4.  **Admin Protection Validation:** Verify that an Admin's "Deactivate" button is disabled for their own row in the Users table.

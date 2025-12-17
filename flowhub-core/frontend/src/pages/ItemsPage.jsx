@@ -631,14 +631,14 @@ export default function ItemsPage() {
             <>
               <div className="overflow-x-auto">
                 <table
-                  className="min-w-full divide-y divide-slate-200"
+                  className="min-w-full divide-y divide-slate-200 table-fixed"
                   role="table"
                   aria-label="Items table"
                   data-testid="items-table"
                 >
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      <th className="px-6 py-3.5 text-left">
+                      <th className="px-6 py-3.5 text-left w-12">
                         <input
                           type="checkbox"
                           checked={items.length > 0 && selectedItems.length === items.length}
@@ -649,7 +649,7 @@ export default function ItemsPage() {
                         />
                       </th>
                       <th
-                        className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group"
+                        className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group w-1/4"
                         onClick={() => handleSort('name')}
                         role="button"
                         aria-label="Sort by name"
@@ -660,14 +660,14 @@ export default function ItemsPage() {
                           {getSortIndicator('name')}
                         </span>
                       </th>
-                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider w-1/3">
                         Description
                       </th>
-                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider w-32">
                         Status
                       </th>
                       <th
-                        className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group"
+                        className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group w-40"
                         onClick={() => handleSort('category')}
                         role="button"
                         aria-label="Sort by category"
@@ -679,7 +679,7 @@ export default function ItemsPage() {
                         </span>
                       </th>
                       <th
-                        className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group"
+                        className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group w-28"
                         onClick={() => handleSort('price')}
                         role="button"
                         aria-label="Sort by price"
@@ -691,7 +691,7 @@ export default function ItemsPage() {
                         </span>
                       </th>
                       <th
-                        className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group"
+                        className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group w-32"
                         onClick={() => handleSort('createdAt')}
                         role="button"
                         aria-label="Sort by created date"
@@ -702,15 +702,19 @@ export default function ItemsPage() {
                           {getSortIndicator('createdAt')}
                         </span>
                       </th>
-                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider w-40">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-slate-200">
+                  <tbody className="bg-white divide-y divide-slate-200 table-fixed">
                     {items.map((item) => (
-                      <tr key={item._id} className={`hover:bg-slate-50 transition-colors ${selectedItems.includes(item._id) ? 'bg-indigo-50/50' : ''}`}>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                      <tr 
+                        key={item._id} 
+                        data-testid={`item-row-${item._id}`}
+                        className={`hover:bg-slate-50 transition-colors h-16 ${selectedItems.includes(item._id) ? 'bg-indigo-50/50' : ''}`}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap w-12">
                           <input
                             type="checkbox"
                             checked={selectedItems.includes(item._id)}
@@ -720,13 +724,13 @@ export default function ItemsPage() {
                             data-testid={`select-item-${item._id}`}
                           />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900" data-testid={`item-name-${item._id}`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 truncate max-w-[200px]" data-testid={`item-name-${item._id}`}>
                           {item.name}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-600 leading-relaxed" data-testid={`item-description-${item._id}`} title={item.description}>
+                        <td className="px-6 py-4 text-sm text-slate-600 leading-relaxed truncate max-w-[300px]" data-testid={`item-description-${item._id}`} title={item.description}>
                           {truncateDescription(item.description)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap" data-testid={`item-status-${item._id}`}>
+                        <td className="px-6 py-4 whitespace-nowrap w-32" data-testid={`item-status-${item._id}`}>
                           <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                             item.is_active
                               ? 'bg-emerald-50 text-emerald-700'
@@ -735,16 +739,16 @@ export default function ItemsPage() {
                             {item.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900" data-testid={`item-category-${item._id}`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 truncate max-w-[150px]" data-testid={`item-category-${item._id}`}>
                           {item.category}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900" data-testid={`item-price-${item._id}`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 w-28" data-testid={`item-price-${item._id}`}>
                           {formatPrice(item.price)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500" data-testid={`item-created-${item._id}`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 w-32" data-testid={`item-created-${item._id}`}>
                           {formatDate(item.createdAt)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" data-testid={`item-actions-${item._id}`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium w-40" data-testid={`item-actions-${item._id}`}>
                           <div className="flex space-x-2">
                             <button
                               onClick={(e) => handleViewItem(item._id, e)}
