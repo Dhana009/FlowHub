@@ -5,6 +5,7 @@ import SignUpPage from '../pages/SignUpPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
 import ItemsPage from '../pages/ItemsPage';
 import CreateItemPage from '../pages/CreateItemPage';
+import EditItemPage from '../pages/EditItemPage';
 
 /**
  * Root Route Component
@@ -94,6 +95,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <CreateItemPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/items/:id/edit"
+        element={
+          <ProtectedRoute>
+            <EditItemPage />
           </ProtectedRoute>
         }
       />

@@ -215,8 +215,16 @@ function buildSortObject(sortBy, sortOrder) {
   
   validatedFields.forEach((field, index) => {
     const order = sortOrder && sortOrder[index] === 'asc' ? 1 : -1;
-    sortObj[field] = order;
+    // Map 'category' to 'normalizedCategory' for sorting (database uses normalizedCategory for consistency)
+    const sortField = field === 'category' ? 'normalizedCategory' : field;
+    sortObj[sortField] = order;
   });
+  
+  // Add _id as tie-breaker to ensure deterministic sorting when primary/secondary fields have same values
+  // This ensures MongoDB always applies the sort consistently
+  if (!sortObj._id) {
+    sortObj._id = 1; // Always sort by _id ascending as final tie-breaker
+  }
   
   return sortObj;
 }
@@ -295,12 +303,18 @@ async function getItems(filters = {}) {
     Item.countDocuments(query)
   ]);
 
+  // Remove internal normalized fields from response (since we use .lean(), toJSON transform doesn't apply)
+  const cleanedItems = items.map(item => {
+    const { normalizedName, normalizedNamePrefix, normalizedCategory, __v, ...cleanedItem } = item;
+    return cleanedItem;
+  });
+
   // Calculate pagination
   const totalPages = Math.max(0, Math.ceil(total / limitNum));
   const currentPage = Math.min(pageNum, totalPages || 1);
 
   return {
-    items,
+    items: cleanedItems,
     pagination: {
       page: currentPage,
       limit: limitNum,
@@ -322,9 +336,10 @@ async function getItems(filters = {}) {
  * @returns {Promise<object>} - Updated item
  * @throws {Error} - If update fails (with statusCode)
  */
-async function updateItem(itemId, updateData, file, userId) {
-  // Check if item exists and is not deleted
-  const existingItem = await Item.findOne({ _id: itemId, is_active: true });
+async function updateItem(itemId, updateData, file, userId, providedVersion) {
+  // Step 1: Check ownership (users can only edit their own items)
+  // Return 404 if item doesn't exist or not owned (security: don't reveal item exists)
+  const existingItem = await Item.findOne({ _id: itemId, created_by: userId });
   
   if (!existingItem) {
     const error = new Error(`Item with ID ${itemId} not found`);
@@ -332,24 +347,146 @@ async function updateItem(itemId, updateData, file, userId) {
     throw error;
   }
 
-  // Check if item is deleted (cannot edit deleted items)
+  // Step 2: Check if item is deleted (cannot edit deleted items)
+  // This must be checked before is_active since deleted items are also inactive
   if (existingItem.deleted_at) {
     const error = new Error('Cannot edit deleted item');
     error.statusCode = 409;
+    error.errorCodeDetail = 'ITEM_DELETED';
     throw error;
   }
 
-  // Validate update data - merge with existing item data for validation
-  // But exclude MongoDB internal fields that shouldn't be validated
-  const itemDataForValidation = {
-    ...existingItem.toObject(),
-    ...updateData
-  };
+  // Step 3: Check if item is inactive (cannot edit inactive items)
+  if (!existingItem.is_active) {
+    const error = new Error('Cannot edit inactive item');
+    error.statusCode = 409;
+    error.errorCodeDetail = 'ITEM_INACTIVE';
+    throw error;
+  }
+
+  // Step 4: Check version (required, must match current version)
+  if (providedVersion === undefined || providedVersion === null) {
+    const error = new Error('Version field is required and must be a positive integer');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (typeof providedVersion !== 'number' || !Number.isInteger(providedVersion) || providedVersion < 1) {
+    const error = new Error('Version field is required and must be a positive integer');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (existingItem.version !== providedVersion) {
+    const error = new Error(`Item was modified by another user. Expected version: ${existingItem.version}, Provided: ${providedVersion}`);
+    error.statusCode = 409;
+    error.errorCodeDetail = 'VERSION_CONFLICT';
+    error.currentVersion = existingItem.version;
+    error.providedVersion = providedVersion;
+    throw error;
+  }
+
+  // Step 5: Handle item_type changes - clear old conditional fields
+  const oldItemType = existingItem.item_type;
+  const newItemType = updateData.item_type || oldItemType;
+  
+  // Track which fields to clear when item_type changes
+  const fieldsToClear = [];
+  if (newItemType !== oldItemType) {
+    // Clear old conditional fields based on old type
+    if (oldItemType === 'PHYSICAL') {
+      updateData.weight = undefined;
+      updateData.dimensions = undefined;
+      fieldsToClear.push('weight', 'dimensions');
+    } else if (oldItemType === 'DIGITAL') {
+      updateData.download_url = undefined;
+      updateData.file_size = undefined;
+      fieldsToClear.push('download_url', 'file_size');
+    } else if (oldItemType === 'SERVICE') {
+      updateData.duration_hours = undefined;
+      fieldsToClear.push('duration_hours');
+    }
+  }
+
+  // Step 6: Validate update data - merge with existing item data for validation
+  // Get raw document data (without Mongoose transforms)
+  const existingItemRaw = existingItem.toObject({ getters: false, virtuals: false, transform: false });
+  
+  // Build validation data - start with existing item data
+  // When item_type changes, we need to exclude old conditional fields entirely
+  const itemDataForValidation = {};
+  
+  // Define fields to exclude based on new item_type
+  const fieldsToExclude = new Set(); // Use Set for O(1) lookup
+  if (newItemType !== oldItemType) {
+    if (newItemType === 'DIGITAL') {
+      fieldsToExclude.add('weight');
+      fieldsToExclude.add('dimensions');
+      fieldsToExclude.add('duration_hours');
+      fieldsToExclude.add('length');
+      fieldsToExclude.add('width');
+      fieldsToExclude.add('height');
+    } else if (newItemType === 'PHYSICAL') {
+      fieldsToExclude.add('download_url');
+      fieldsToExclude.add('file_size');
+      fieldsToExclude.add('duration_hours');
+    } else if (newItemType === 'SERVICE') {
+      fieldsToExclude.add('weight');
+      fieldsToExclude.add('dimensions');
+      fieldsToExclude.add('download_url');
+      fieldsToExclude.add('file_size');
+      fieldsToExclude.add('length');
+      fieldsToExclude.add('width');
+      fieldsToExclude.add('height');
+    }
+  }
+  
+  // Copy all fields from existing item, excluding internal/system fields and old conditional fields
+  for (const key in existingItemRaw) {
+    // Skip internal/system fields
+    if (['_id', '__v', 'createdAt', 'updatedAt', 'version', 'created_by', 'updated_by', 
+         'file_path', 'normalizedName', 'normalizedNamePrefix', 'normalizedCategory', 
+         'is_active', 'deleted_at'].includes(key)) {
+      continue;
+    }
+    // Skip old conditional fields when item_type changes
+    if (fieldsToExclude.has(key)) {
+      continue;
+    }
+    itemDataForValidation[key] = existingItemRaw[key];
+  }
+  
+  // Apply updates from updateData (these will override existing values)
+  // But exclude fields that shouldn't be present for the new item_type
+  for (const key in updateData) {
+    if (updateData[key] !== undefined && updateData[key] !== null) {
+      // Don't include fields that are excluded for the new item_type
+      if (!fieldsToExclude.has(key)) {
+        itemDataForValidation[key] = updateData[key];
+      }
+    }
+  }
+  
+  // Final safety check: explicitly remove any excluded fields that might have slipped through
+  fieldsToExclude.forEach(field => {
+    delete itemDataForValidation[field];
+  });
+  
   // Remove MongoDB internal fields
   delete itemDataForValidation._id;
   delete itemDataForValidation.__v;
   delete itemDataForValidation.createdAt;
   delete itemDataForValidation.updatedAt;
+  delete itemDataForValidation.version; // Don't validate version in merged data
+  // Remove system/internal fields that shouldn't be validated
+  delete itemDataForValidation.created_by;
+  delete itemDataForValidation.updated_by;
+  delete itemDataForValidation.file_path;
+  delete itemDataForValidation.normalizedName;
+  delete itemDataForValidation.normalizedNamePrefix;
+  delete itemDataForValidation.normalizedCategory;
+  delete itemDataForValidation.is_active;
+  delete itemDataForValidation.deleted_at;
   
   // Try to validate, but catch duplicate errors and check if it's the same item
   try {
@@ -378,7 +515,7 @@ async function updateItem(itemId, updateData, file, userId) {
     }
   }
 
-  // Handle file upload if provided
+  // Step 7: Handle file upload if provided
   let filePath = existingItem.file_path;
   if (file) {
     // Delete old file if exists
@@ -390,13 +527,13 @@ async function updateItem(itemId, updateData, file, userId) {
     filePath = await fileService.commitFileUpload(tempFileInfo.tempFilePath, userId, 'items');
   }
 
-  // Normalize category if provided
+  // Step 8: Normalize category if provided
   if (updateData.category) {
     updateData.category = categoryService.normalizeCategory(updateData.category);
     updateData.normalizedCategory = updateData.category;
   }
 
-  // Normalize name if provided
+  // Step 9: Normalize name if provided
   if (updateData.name) {
     const normalizedName = updateData.name.toLowerCase().trim();
     updateData.normalizedName = normalizedName;
@@ -410,16 +547,59 @@ async function updateItem(itemId, updateData, file, userId) {
     }
   }
 
-  // Update item
+  // Step 10: Prepare update data
   if (filePath) {
     updateData.file_path = filePath;
   }
 
-  const updatedItem = await Item.findByIdAndUpdate(
-    itemId,
-    { $set: updateData },
+  // Increment version and set updated_by
+  updateData.version = existingItem.version + 1;
+  updateData.updated_by = userId;
+
+  // Filter out undefined values from updateData before database update
+  // (undefined values cause Mongoose to cast to NaN for number fields)
+  const cleanUpdateData = {};
+  for (const key in updateData) {
+    if (updateData[key] !== undefined) {
+      cleanUpdateData[key] = updateData[key];
+    }
+  }
+
+  // Prepare MongoDB update operation
+  const updateOperation = { $set: cleanUpdateData };
+  
+  // If item_type changed, use $unset to remove old conditional fields
+  if (newItemType !== oldItemType && fieldsToClear.length > 0) {
+    updateOperation.$unset = {};
+    fieldsToClear.forEach(field => {
+      updateOperation.$unset[field] = '';
+    });
+  }
+
+  // Step 11: Update item with optimistic locking (version must match)
+  const updatedItem = await Item.findOneAndUpdate(
+    { 
+      _id: itemId, 
+      version: providedVersion,  // Optimistic locking: version must match
+      created_by: userId,  // Double-check ownership
+      is_active: true,  // Double-check active status
+      deleted_at: null  // Double-check not deleted
+    },
+    updateOperation,
     { new: true, runValidators: true }
   );
+
+  // If update returned null, version conflict occurred during update
+  if (!updatedItem) {
+    // Re-fetch to get current version
+    const currentItem = await Item.findById(itemId);
+    const error = new Error(`Item was modified by another user. Expected version: ${currentItem.version}, Provided: ${providedVersion}`);
+    error.statusCode = 409;
+    error.errorCodeDetail = 'VERSION_CONFLICT';
+    error.currentVersion = currentItem.version;
+    error.providedVersion = providedVersion;
+    throw error;
+  }
 
   return updatedItem;
 }
@@ -427,36 +607,48 @@ async function updateItem(itemId, updateData, file, userId) {
 /**
  * Soft delete an item
  * 
+ * PRD Reference: Flow 6 - Item Delete (Section 6.3: Ownership Validation)
+ * Users can only delete items they created.
+ * 
  * @param {string} itemId - Item ID
  * @param {string} userId - User ID deleting the item
  * @returns {Promise<object>} - Deleted item
  * @throws {Error} - If deletion fails (with statusCode)
  */
 async function deleteItem(itemId, userId) {
-  // Check if item exists
-  const existingItem = await Item.findById(itemId);
+  // PRD Section 6.3: Step 1 - Check ownership and existence
+  // Return 404 if item doesn't exist or not owned (security: don't reveal ownership)
+  const existingItem = await Item.findOne({ 
+    _id: itemId,
+    created_by: userId // Ownership check
+  });
   
   if (!existingItem) {
+    // PRD Section 6.3: Return 404 (not 403) to prevent information disclosure
     const error = new Error(`Item with ID ${itemId} not found`);
     error.statusCode = 404;
     throw error;
   }
 
-  // Check if already deleted
+  // PRD Section 6.2: Step 2 - Check if already deleted
+  // Item is already deleted if is_active is false OR deleted_at is set
   if (!existingItem.is_active || existingItem.deleted_at) {
     const error = new Error('Item is already deleted');
     error.statusCode = 409;
+    error.errorCodeDetail = 'ITEM_ALREADY_DELETED';
     throw error;
   }
 
-  // Soft delete: set is_active to false and deleted_at to current time
+  // PRD Section 6.2: Step 3 - Soft delete
+  // Set is_active to false and deleted_at to current time
   const deletedItem = await Item.findByIdAndUpdate(
     itemId,
     {
       $set: {
         is_active: false,
-        deleted_at: new Date()
+        deleted_at: new Date() // UTC timestamp
       }
+      // updated_at automatically updated by Mongoose timestamps
     },
     { new: true }
   );

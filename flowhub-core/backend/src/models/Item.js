@@ -230,12 +230,43 @@ const itemSchema = new mongoose.Schema({
     uploaded_at: Date
   },
   
+  // Embedded content URL (optional, for Flow 4 iframe)
+  embed_url: {
+    type: String,
+    default: null,
+    validate: {
+      validator: function(value) {
+        // If provided, must be a valid URL
+        if (!value) return true; // Optional field
+        try {
+          const url = new URL(value);
+          // Only allow http:// and https:// protocols
+          return url.protocol === 'http:' || url.protocol === 'https:';
+        } catch {
+          return false;
+        }
+      },
+      message: 'embed_url must be a valid HTTP or HTTPS URL'
+    }
+  },
+  
   // Metadata
   created_by: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: [true, 'Created by user is required'],
     index: true
+  },
+  updated_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  version: {
+    type: Number,
+    default: 1,
+    min: [1, 'Version must be at least 1'],
+    required: true
   },
   is_active: {
     type: Boolean,

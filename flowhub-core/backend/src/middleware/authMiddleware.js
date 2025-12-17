@@ -23,10 +23,10 @@ function verifyToken(req, res, next) {
       return res.status(401).json({
         status: 'error',
         error_code: 401,
-        error_type: 'Unauthorized',
-        message: 'Authentication required - No token provided',
+        error_type: 'Unauthorized - Authentication required',
+        message: 'Authentication required. Please log in.',
         timestamp: new Date().toISOString(),
-        path: req.path
+        path: req.originalUrl || req.path
       });
     }
 
@@ -46,10 +46,10 @@ function verifyToken(req, res, next) {
     return res.status(401).json({
       status: 'error',
       error_code: 401,
-      error_type: 'Unauthorized',
-      message: 'Authentication required - Invalid or expired token',
+      error_type: 'Unauthorized - Authentication required',
+      message: 'Authentication required. Please log in.',
       timestamp: new Date().toISOString(),
-      path: req.path
+      path: req.originalUrl || req.path
     });
   }
 }

@@ -5,6 +5,7 @@ import { getItems } from '../services/itemService';
 import Button from '../components/common/Button';
 import ErrorMessage from '../components/common/ErrorMessage';
 import Input from '../components/common/Input';
+import ItemDetailsModal from '../components/items/ItemDetailsModal';
 
 /**
  * Items Page - Flow 3 Implementation
@@ -42,6 +43,10 @@ export default function ItemsPage() {
   const [isUserActive, setIsUserActive] = useState(false);
   const refreshIntervalRef = useRef(null);
   const searchTimeoutRef = useRef(null);
+
+  // Modal state (Flow 4)
+  const [modalItemId, setModalItemId] = useState(null);
+  const [modalTriggerElement, setModalTriggerElement] = useState(null);
 
   /**
    * Fetch items from API
@@ -272,6 +277,54 @@ export default function ItemsPage() {
     await logout();
     navigate('/login', { replace: true });
   };
+
+  /**
+   * Handle View button click (Flow 4)
+   * PRD Section 5: User Journey - Click "View" button on item row
+   * PRD Section 16.1: URL Hash Management - Update hash when modal opens
+   */
+  const handleViewItem = (itemId, event) => {
+    // Store the trigger element for focus return (PRD Section 10.2)
+    setModalTriggerElement(event.currentTarget);
+    setModalItemId(itemId);
+    
+    // Update URL hash for deep linking (PRD Section 16.1)
+    const newHash = `#item/${itemId}`;
+    if (window.location.hash !== newHash) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search + newHash);
+    }
+  };
+
+  /**
+   * Handle modal close (Flow 4)
+   */
+  const handleModalClose = () => {
+    setModalItemId(null);
+    setModalTriggerElement(null);
+  };
+
+  /**
+   * Check URL hash on mount and when hash changes (Flow 4)
+   * PRD Section 16.1: Deep linking support
+   */
+  useEffect(() => {
+    const checkHash = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#item/')) {
+        const itemId = hash.substring(6); // Remove '#item/'
+        if (itemId) {
+          setModalItemId(itemId);
+        }
+      }
+    };
+
+    // Check on mount
+    checkHash();
+
+    // Listen for hash changes (browser back/forward)
+    window.addEventListener('hashchange', checkHash);
+    return () => window.removeEventListener('hashchange', checkHash);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -528,8 +581,24 @@ export default function ItemsPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium" data-testid={`item-actions-${item._id}`}>
                           <div className="flex space-x-2">
-                            <button className="text-blue-600 hover:text-blue-900">View</button>
-                            <button className="text-indigo-600 hover:text-indigo-900">Edit</button>
+                            <button
+                              onClick={(e) => handleViewItem(item._id, e)}
+                              className="text-blue-600 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-2 py-1"
+                              role="button"
+                              aria-label={`View details for ${item.name}`}
+                              data-testid={`view-item-${item._id}`}
+                            >
+                              View
+                            </button>
+                            <button
+                              onClick={() => navigate(`/items/${item._id}/edit`)}
+                              className="text-indigo-600 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded px-2 py-1"
+                              role="button"
+                              aria-label={`Edit ${item.name}`}
+                              data-testid={`edit-item-${item._id}`}
+                            >
+                              Edit
+                            </button>
                             <button className="text-red-600 hover:text-red-900">Delete</button>
                           </div>
                         </td>
@@ -635,6 +704,14 @@ export default function ItemsPage() {
           )}
         </div>
       </main>
+
+      {/* Item Details Modal (Flow 4) */}
+      <ItemDetailsModal
+        isOpen={modalItemId !== null}
+        itemId={modalItemId}
+        onClose={handleModalClose}
+        triggerElement={modalTriggerElement}
+      />
     </div>
   );
 }

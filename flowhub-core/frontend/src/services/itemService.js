@@ -53,6 +53,11 @@ export async function createItem(itemData, file = null) {
       if (itemData.duration_hours) formData.append('duration_hours', itemData.duration_hours);
     }
     
+    // Append optional embed_url if provided
+    if (itemData.embed_url) {
+      formData.append('embed_url', itemData.embed_url);
+    }
+    
     // Append file if provided
     if (file) {
       formData.append('file', file);
@@ -164,23 +169,174 @@ export async function getItems(params = {}) {
 }
 
 /**
- * Get single item by ID (placeholder for Flow 4)
+ * Get single item by ID (Flow 4)
+ * PRD Reference: Flow 4 - Item Details (Section 9)
  * 
- * @param {string} itemId - Item ID
- * @returns {Promise<object>} - Item data
+ * Handles timeout (10 seconds), network errors, and all PRD error formats.
+ * 
+ * @param {string} itemId - Item ID (MongoDB ObjectId)
+ * @param {AbortSignal} [signal] - Optional AbortSignal for request cancellation
+ * @returns {Promise<object>} - Item data from response.data
+ * @throws {Error} - With statusCode, error_code, error_type, and message matching PRD format
  */
-export async function getItem(itemId) {
+export async function getItem(itemId, signal = null) {
+  // PRD Section 9: Request timeout is 10 seconds (handled by axios timeout)
+  const TIMEOUT_MS = 10000;
+
   try {
-    const response = await api.get(`/items/${itemId}`);
-    return response.data;
+    const response = await api.get(`/items/${itemId}`, {
+      timeout: TIMEOUT_MS,
+      signal: signal // Allow request cancellation
+    });
+
+    // PRD Section 9: Success response format
+    // { status: 'success', message: 'Item retrieved successfully', data: { item } }
+    return response.data.data; // Return the item data directly
   } catch (error) {
+    // Handle request cancellation (user closed modal)
+    if (error.name === 'AbortError' || error.name === 'CanceledError') {
+      const cancelError = new Error('Request cancelled');
+      cancelError.statusCode = 0;
+      cancelError.isCancelled = true;
+      throw cancelError;
+    }
+
+    // Handle timeout (PRD Section 8.1: Request Timeout)
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      const timeoutError = new Error('Request timed out. Please try again.');
+      timeoutError.statusCode = 408;
+      timeoutError.error_code = 408;
+      timeoutError.error_type = 'Request Timeout';
+      throw timeoutError;
+    }
+
+    // Handle HTTP error responses (PRD Section 9: Error Responses)
     if (error.response) {
       const errorData = error.response.data;
-      const errorMessage = errorData?.error || 'Failed to fetch item';
+      
+      // PRD error format: { status, error_code, error_type, message, timestamp, path }
+      const errorMessage = errorData?.message || errorData?.error || 'Failed to fetch item';
+      
       const customError = new Error(errorMessage);
       customError.statusCode = error.response.status;
+      customError.error_code = errorData?.error_code || error.response.status;
+      customError.error_type = errorData?.error_type || 'Error';
+      customError.data = errorData; // Full PRD error object
+      
       throw customError;
     }
+
+    // Handle network errors (PRD Section 8.1: Network Error)
+    if (error.request && !error.response) {
+      const networkError = new Error('Connection failed. Please check your internet and try again.');
+      networkError.statusCode = 0;
+      networkError.error_code = 0;
+      networkError.error_type = 'Network Error';
+      networkError.isNetworkError = true;
+      throw networkError;
+    }
+
+    // Fallback for unknown errors
+    throw new Error(error.message || 'An unexpected error occurred while retrieving the item.');
+  }
+}
+
+/**
+ * Update an existing item (Flow 5)
+ * PRD Reference: Flow 5 - Item Edit
+ * 
+ * @param {string} itemId - Item ID to update
+ * @param {object} itemData - Updated item data
+ * @param {File|null} file - Optional file to upload (replaces existing file)
+ * @param {number} version - Current version number (required for optimistic locking)
+ * @returns {Promise<object>} - Updated item data
+ * @throws {Error} - If update fails (with statusCode and PRD error format)
+ */
+export async function updateItem(itemId, itemData, file = null, version) {
+  try {
+    // Create FormData object
+    const formData = new FormData();
+    
+    // Append version (required for optimistic locking)
+    if (version === undefined || version === null) {
+      throw new Error('Version field is required for item updates');
+    }
+    formData.append('version', version.toString());
+    
+    // Append all item fields that are provided
+    if (itemData.name !== undefined) formData.append('name', itemData.name || '');
+    if (itemData.description !== undefined) formData.append('description', itemData.description || '');
+    if (itemData.item_type !== undefined) formData.append('item_type', itemData.item_type || '');
+    if (itemData.price !== undefined) formData.append('price', itemData.price || '');
+    if (itemData.category !== undefined) formData.append('category', itemData.category || '');
+    
+    // Tags (can be array or comma-separated string, or empty array)
+    if (itemData.tags !== undefined) {
+      if (Array.isArray(itemData.tags)) {
+        // Empty array means clear all tags
+        itemData.tags.forEach(tag => {
+          formData.append('tags', tag);
+        });
+      } else if (typeof itemData.tags === 'string') {
+        formData.append('tags', itemData.tags);
+      }
+    }
+    
+    // Conditional fields based on item_type
+    if (itemData.item_type === 'PHYSICAL' || itemData.weight !== undefined) {
+      if (itemData.weight !== undefined) formData.append('weight', itemData.weight);
+      if (itemData.dimensions) {
+        if (itemData.dimensions.length !== undefined) formData.append('length', itemData.dimensions.length);
+        if (itemData.dimensions.width !== undefined) formData.append('width', itemData.dimensions.width);
+        if (itemData.dimensions.height !== undefined) formData.append('height', itemData.dimensions.height);
+      }
+    } else if (itemData.item_type === 'DIGITAL' || itemData.download_url !== undefined) {
+      if (itemData.download_url !== undefined) formData.append('download_url', itemData.download_url);
+      if (itemData.file_size !== undefined) formData.append('file_size', itemData.file_size);
+    } else if (itemData.item_type === 'SERVICE' || itemData.duration_hours !== undefined) {
+      if (itemData.duration_hours !== undefined) formData.append('duration_hours', itemData.duration_hours);
+    }
+    
+    // Append optional embed_url if provided
+    if (itemData.embed_url !== undefined) {
+      formData.append('embed_url', itemData.embed_url || '');
+    }
+    
+    // Append file if provided (replaces existing file)
+    if (file) {
+      formData.append('file', file);
+    }
+
+    // Make API call (PUT request)
+    const response = await api.put(`/items/${itemId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+
+    return response.data;
+  } catch (error) {
+    // Handle error responses - PRD format
+    if (error.response) {
+      const errorData = error.response.data;
+      
+      // PRD error format: { status, error_code, error_type, message, timestamp, path }
+      const errorMessage = errorData?.message || errorData?.error || 'Failed to update item';
+      
+      // Create error with status code and PRD error data
+      const customError = new Error(errorMessage);
+      customError.statusCode = error.response.status;
+      customError.error_code = errorData?.error_code;
+      customError.error_type = errorData?.error_type;
+      customError.error_code_detail = errorData?.error_code_detail;
+      customError.current_version = errorData?.current_version;
+      customError.provided_version = errorData?.provided_version;
+      customError.details = errorData?.details;
+      customError.data = errorData;
+      throw customError;
+    }
+    
+    // Network or other errors
     throw new Error(error.message || 'Network error. Please check your connection.');
   }
 }

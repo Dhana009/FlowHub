@@ -50,7 +50,9 @@ export default function ItemCreationForm() {
     dimensions: { length: '', width: '', height: '' },
     download_url: '',
     file_size: '',
-    duration_hours: ''
+    duration_hours: '',
+    // Optional fields
+    embed_url: ''
   };
 
   // Base validation rules (always applied)
@@ -189,6 +191,11 @@ export default function ItemCreationForm() {
         itemData.file_size = parseInt(values.file_size, 10);
       } else if (values.item_type === 'SERVICE') {
         itemData.duration_hours = parseInt(values.duration_hours, 10);
+      }
+
+      // Add optional embed_url if provided
+      if (values.embed_url && values.embed_url.trim()) {
+        itemData.embed_url = values.embed_url.trim();
       }
 
       // Create item
@@ -431,6 +438,23 @@ export default function ItemCreationForm() {
         onFileRemove={handleFileRemove}
         error={fileError}
       />
+
+      {/* Embed URL (Optional - for iframe content) */}
+      <div className="mb-5">
+        <Input
+          type="url"
+          label="Embed URL (Optional)"
+          value={values.embed_url}
+          onChange={(value) => handleChange('embed_url', value)}
+          onBlur={() => handleBlur('embed_url')}
+          error={touched.embed_url ? errors.embed_url : ''}
+          dataTestid="item-embed-url"
+          placeholder="https://example.com/embed/content"
+        />
+        <p className="mt-1 text-sm text-gray-500">
+          URL for embedded content (videos, demos, etc.) that will display in item details modal
+        </p>
+      </div>
 
       {/* Buttons */}
       <div className="flex gap-4 mt-6">

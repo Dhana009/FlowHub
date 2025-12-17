@@ -98,31 +98,67 @@ Users need to update existing items in FlowHub. The system must:
 
 ### **6.1 Cannot Edit Deleted Items**
 
-**Rule:** Items with status "deleted" cannot be edited.
+**Rule:** Items with `deleted_at` set cannot be edited.
 
 **Behavior:**
-- If item status is "deleted":
+- If item has `deleted_at` set:
   - Show error message: "Cannot edit deleted item"
   - Disable form fields
   - Hide "Update" button
   - Show "Item is deleted" message
 - **Error Code:** 409 Conflict
-- **Error Type:** "ITEM_DELETED"
+- **Error Type:** "Conflict - Item deleted"
+- **Error Code Detail:** "ITEM_DELETED"
 
 ---
 
-### **6.2 Version Conflict Detection**
+### **6.2 Cannot Edit Inactive Items**
+
+**Rule:** Items with `is_active: false` cannot be edited.
+
+**Behavior:**
+- If item has `is_active: false`:
+  - Show error message: "Cannot edit inactive item"
+  - **Error Code:** 409 Conflict
+  - **Error Type:** "Conflict - Item inactive"
+  - **Error Code Detail:** "ITEM_INACTIVE"
+
+---
+
+### **6.3 Ownership Check**
+
+**Rule:** Users can only edit items they created.
+
+**Behavior:**
+- If item exists but `created_by` doesn't match current user:
+  - Return 404 Not Found (for security, don't reveal item exists)
+  - Error message: "Item with ID {id} not found"
+- **Error Code:** 404 Not Found
+- **Error Type:** "Not Found - Resource not found"
+
+---
+
+### **6.4 Version Conflict Detection**
 
 **Rule:** Prevent concurrent edit conflicts using optimistic locking.
 
 **Behavior:**
-- Each item has a `version` field (integer, increments on each update)
+- Each item has a `version` field (integer, starts at 1, increments on each update)
+- **Version field is REQUIRED in request body**
+- Version must be a positive integer
+- If version is missing, invalid type, or negative:
+  - **Error Code:** 400 Bad Request
+  - **Error Type:** "Bad Request"
+  - **Message:** "Version field is required and must be a positive integer"
 - When editing, include current `version` in request
+- Version is checked BEFORE other validations
 - If version mismatch (item was updated by another user):
-  - Show error: "Item was modified by another user. Please refresh and try again."
+  - Show error: "Item was modified by another user. Expected version: {current}, Provided: {provided}"
   - Option to refresh and reload latest data
 - **Error Code:** 409 Conflict
-- **Error Type:** "VERSION_CONFLICT"
+- **Error Type:** "Conflict - Version mismatch"
+- **Error Code Detail:** "VERSION_CONFLICT"
+- **Response includes:** `current_version`, `provided_version`
 
 ---
 
@@ -204,33 +240,43 @@ Users need to update existing items in FlowHub. The system must:
 
 ## **9. API Endpoint Specification**
 
-**Endpoint:** `PUT /api/items/{id}`
+**Endpoint:** `PUT /api/v1/items/{id}`
 
 **Authentication:** Required (JWT token)
 
 **Path Parameter:**
-- `id` (required): Item ID (MongoDB ObjectId)
+- `id` (required): Item ID (MongoDB ObjectId, 24-character hexadecimal string)
 
 **Request Body:**
+- **Partial updates supported:** Only send fields that need to be updated
+- **Version field is REQUIRED:** Must be included in every update request
+- **Validation:** System merges provided fields with existing item data, then validates merged result
+
 ```json
 {
   "name": "Updated Laptop Computer",
   "description": "Updated description",
   "item_type": "PHYSICAL",
-  "category_id": "cat_123",
-  "subcategory_id": "subcat_456",
-  "status": "active",
+  "category": "Electronics",
   "tags": ["laptop", "updated"],
   "price": 1399.99,
   "weight": 2.8,
-  "dimensions": {
-    "length": 36.0,
-    "width": 25.0,
-    "height": 2.1
-  },
+  "length": 36.0,
+  "width": 25.0,
+  "height": 2.1,
   "version": 1
 }
 ```
+
+**Request Body Fields:**
+- `version` (required, integer): Current version of the item (must match database version)
+- All other fields: Same as Flow 2 (Item Creation)
+- **Partial updates:** Only include fields that need to be changed
+- **Item type changes:** Allowed - system will clear old conditional fields and require new ones
+
+**Note:** 
+- If `item_type` is changed, old conditional fields are cleared
+- Example: Changing from PHYSICAL to DIGITAL clears `weight` and `dimensions`, requires `download_url` and `file_size`
 
 **Success Response (200 OK):**
 ```json
@@ -299,6 +345,18 @@ Users need to update existing items in FlowHub. The system must:
 }
 ```
 
+**400 Bad Request (Missing/Invalid Version):**
+```json
+{
+  "status": "error",
+  "error_code": 400,
+  "error_type": "Bad Request",
+  "message": "Version field is required and must be a positive integer",
+  "timestamp": "2024-12-17T03:25:00Z",
+  "path": "/api/v1/items/507f1f77bcf86cd799439011"
+}
+```
+
 **409 Conflict (Version Mismatch):**
 ```json
 {
@@ -310,7 +368,20 @@ Users need to update existing items in FlowHub. The system must:
   "current_version": 2,
   "provided_version": 1,
   "timestamp": "2024-12-17T03:25:00Z",
-  "path": "/api/items/507f1f77bcf86cd799439011"
+  "path": "/api/v1/items/507f1f77bcf86cd799439011"
+}
+```
+
+**409 Conflict (Item Inactive):**
+```json
+{
+  "status": "error",
+  "error_code": 409,
+  "error_type": "Conflict - Item inactive",
+  "message": "Cannot edit inactive item",
+  "error_code_detail": "ITEM_INACTIVE",
+  "timestamp": "2024-12-17T03:25:00Z",
+  "path": "/api/v1/items/507f1f77bcf86cd799439011"
 }
 ```
 
@@ -347,26 +418,46 @@ Users need to update existing items in FlowHub. The system must:
 **Database:** MongoDB  
 **Collection:** `items` (same as Flow 2)
 
+**Required Fields:**
+- `version` (integer, default: 1, required): Optimistic locking version number
+- `updated_at` (timestamp, auto-updated): Last update timestamp
+- `updated_by` (ObjectId, optional): User who last updated the item
+
 **Update Operation:**
 - Update item document by _id
-- Increment `version` field
-- Update `updated_at` timestamp
-- Update `updated_by` user ID
+- **Version check:** Must match provided version in query filter
+- Increment `version` field (atomic operation)
+- Update `updated_at` timestamp (Mongoose timestamps)
+- Update `updated_by` user ID (if tracking enabled)
 
-**Query:**
+**Update Query (Optimistic Locking):**
 ```javascript
+// Atomic update with version check
 db.items.updateOne(
-  { _id: ObjectId("507f1f77bcf86cd799439011"), version: 1 },
+  { 
+    _id: ObjectId("507f1f77bcf86cd799439011"), 
+    version: 1,  // Must match provided version
+    created_by: ObjectId("507f1f77bcf86cd799439012"),  // Ownership check
+    is_active: true,  // Must be active
+    deleted_at: null  // Must not be deleted
+  },
   { 
     $set: { 
       name: "Updated Name",
-      version: 2,
+      version: 2,  // Increment version
       updated_at: new Date(),
       updated_by: ObjectId("507f1f77bcf86cd799439012")
     }
   }
 );
 ```
+
+**Validation Strategy:**
+- Merge existing item data with update data
+- Validate merged result (same validation as creation)
+- Clear conditional fields when `item_type` changes
+- Check version BEFORE validation (early failure)
+- Check ownership BEFORE version check (security first)
 
 ---
 
@@ -381,23 +472,63 @@ db.items.updateOne(
 
 ---
 
-## **13. Approval & Sign-off**
+## **13. Implementation Clarifications (Post-Ambiguity Analysis)**
+
+### **13.1 Version Field**
+- **Required:** Version field is REQUIRED in request body
+- **Validation:** Must be positive integer (type check + range check)
+- **Error:** 400 Bad Request if missing, invalid type, or negative
+- **Check Order:** Version validation happens BEFORE other validations
+
+### **13.2 Partial Updates**
+- **Supported:** PUT endpoint supports partial updates
+- **Strategy:** Merge provided fields with existing item data
+- **Validation:** Validate merged result (not just provided fields)
+- **Rationale:** Ensures final state is always valid
+
+### **13.3 Ownership Model**
+- **Rule:** Users can only edit items they created (`created_by` matches current user)
+- **Security:** Return 404 (not 403) if item exists but not owned (don't reveal existence)
+- **Check Order:** Ownership check happens BEFORE version check
+
+### **13.4 Inactive Items**
+- **Rule:** Items with `is_active: false` cannot be edited
+- **Error:** 409 Conflict with `ITEM_INACTIVE` error code detail
+- **Rationale:** Consistent state-based rules (similar to deleted items)
+
+### **13.5 Item Type Changes**
+- **Allowed:** Users can change `item_type` during update
+- **Behavior:** Old conditional fields are cleared, new ones are required
+- **Example:** PHYSICAL → DIGITAL clears `weight`/`dimensions`, requires `download_url`/`file_size`
+- **Validation:** New conditional fields must be provided and valid
+
+### **13.6 Validation Scope**
+- **Strategy:** Validate merged data (existing + updates)
+- **Rationale:** Ensures final state is valid, not just provided fields
+- **Same Rules:** Uses same 5-layer validation as creation
+
+---
+
+## **14. Approval & Sign-off**
 
 **PRD Status:** ✅ **FINAL / LOCKED**  
-**Version:** 1.0 (Final)  
-**Date Approved:** December 17, 2024
+**Version:** 1.1 (Updated with Ambiguity Clarifications)  
+**Date Approved:** December 17, 2024  
+**Last Updated:** December 17, 2024 (Post-Ambiguity Analysis)
 
 **Approved By:**
 - Product Manager: ✅ Approved
-- Tester/SDET: ✅ Ambiguity Analysis Complete
+- Tester/SDET: ✅ Ambiguity Analysis Complete + Clarifications Applied
 - Stakeholders: ✅ Approved
 
 **Next Steps:**
+- Implement Flow 5 API endpoint with clarifications
+- Create comprehensive test cases (positive, negative, boundary)
 - Create Functional Specification (FS) for Flow 5
 - Create Architecture Document for Flow 5
 
 ---
 
-**Document Version:** 1.0 (Final)  
-**Status:** ✅ LOCKED - Ready for Functional Specification
+**Document Version:** 1.1 (Updated)  
+**Status:** ✅ LOCKED - Ready for Implementation
 
