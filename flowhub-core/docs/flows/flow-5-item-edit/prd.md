@@ -81,8 +81,9 @@ Users need to update existing items in FlowHub. The system must:
    - Validation runs (client-side + server-side)
    - Loading state: "Updating item..."
 7. **Success Response (200 OK):**
-   - Success message: "Item updated successfully"
-   - Redirect to Item List or Item Details
+   - Success toast message: "Item updated successfully!"
+   - Redirect to Item List page (`/items`)
+   - Success message passed in navigation state
    - Updated item appears in list
 8. **Error Responses:**
    - **400 Bad Request:** Validation errors (display field-level errors)
@@ -166,18 +167,19 @@ Users need to update existing items in FlowHub. The system must:
 
 ### **7.1 Required Fields**
 
-- **Name:** Text input (1-100 characters)
-- **Item Type:** Radio buttons (Physical, Digital, Service)
-- **Category:** Dropdown (required)
-- **Status:** Dropdown (Active, Inactive, Pending)
+- **Name:** Text input (3-100 characters, same as Flow 2)
+- **Description:** Textarea (10-500 characters, same as Flow 2)
+- **Item Type:** Dropdown (Physical, Digital, Service)
+- **Category:** Text input (required, same as Flow 2)
+- **Price:** Number input (required, 0.01-999999.99, same as Flow 2)
 
 ### **7.2 Optional Fields**
 
-- **Description:** Textarea (max 1000 characters)
-- **Subcategory:** Cascading dropdown (depends on category)
-- **Tags:** Checkboxes (multiple selection)
-- **Price:** Number input (currency format)
-- **File:** File upload (optional, can replace existing)
+- **Tags:** Comma-separated text input (same as Flow 2)
+- **File:** File upload (optional, can replace existing, max 5MB)
+- **Embed URL:** URL input (optional, for iframe content)
+
+**Note:** Status is NOT editable - items use `is_active` boolean field (managed via delete/activate operations). Subcategory field is not implemented.
 
 ### **7.3 Conditional Fields**
 
@@ -215,11 +217,13 @@ Users need to update existing items in FlowHub. The system must:
 - Must exist in categories list
 - Error: "Please select a category"
 
-### **8.4 Subcategory Validation**
+### **8.4 Tags Validation**
 
-- Required if category has subcategories
-- Must be valid subcategory for selected category
-- Error: "Please select a subcategory"
+- Optional
+- Comma-separated text input (same as Flow 2)
+- Max 10 tags, each 1-30 characters
+- Tags must be unique (case-insensitive)
+- Error: "Tags validation failed" (same validation rules as Flow 2)
 
 ### **8.5 Price Validation**
 
@@ -231,10 +235,10 @@ Users need to update existing items in FlowHub. The system must:
 ### **8.6 File Validation**
 
 - Optional
-- If provided: Type and size validation (same as creation)
-- Max size: 10MB
-- Allowed types: PDF, DOC, DOCX, JPG, PNG
-- Error: "File must be PDF, DOC, DOCX, JPG, or PNG and under 10MB"
+- If provided: Type and size validation (same as creation - Flow 2)
+- Max size: 5MB (same as Flow 2)
+- Allowed types: .jpg, .jpeg, .png, .pdf, .doc, .docx (same as Flow 2)
+- Error: "File type not supported" (415) or "File too large" (413)
 
 ---
 
@@ -281,24 +285,28 @@ Users need to update existing items in FlowHub. The system must:
 **Success Response (200 OK):**
 ```json
 {
-  "_id": "507f1f77bcf86cd799439011",
-  "name": "Updated Laptop Computer",
-  "description": "Updated description",
-  "item_type": "PHYSICAL",
-  "category_id": "cat_123",
-  "subcategory_id": "subcat_456",
-  "status": "active",
-  "tags": ["laptop", "updated"],
-  "price": 1399.99,
-  "weight": 2.8,
-  "dimensions": {
-    "length": 36.0,
-    "width": 25.0,
-    "height": 2.1
+  "status": "success",
+  "message": "Item updated successfully",
+  "data": {
+    "_id": "507f1f77bcf86cd799439011",
+    "name": "Updated Laptop Computer",
+    "description": "Updated description",
+    "item_type": "PHYSICAL",
+    "category": "Electronics",
+    "tags": ["laptop", "updated"],
+    "price": 1399.99,
+    "weight": 2.8,
+    "dimensions": {
+      "length": 36.0,
+      "width": 25.0,
+      "height": 2.1
+    },
+    "embed_url": "https://example.com/embed/content",
+    "version": 2,
+    "updated_at": "2024-12-17T03:25:00Z",
+    "is_active": true
   },
-  "version": 2,
-  "updated_at": "2024-12-17T03:25:00Z",
-  "updated_by": "507f1f77bcf86cd799439012"
+  "item_id": "507f1f77bcf86cd799439011"
 }
 ```
 
@@ -511,24 +519,34 @@ db.items.updateOne(
 
 ## **14. Approval & Sign-off**
 
-**PRD Status:** ✅ **FINAL / LOCKED**  
-**Version:** 1.1 (Updated with Ambiguity Clarifications)  
-**Date Approved:** December 17, 2024  
-**Last Updated:** December 17, 2024 (Post-Ambiguity Analysis)
+**PRD Status:** ✅ **UPDATED - Synchronized with Implementation**  
+**Version:** 1.2 (Updated to match implementation)  
+**Date Updated:** December 2024
 
 **Approved By:**
 - Product Manager: ✅ Approved
 - Tester/SDET: ✅ Ambiguity Analysis Complete + Clarifications Applied
 - Stakeholders: ✅ Approved
 
+**Changes in Version 1.2 (Implementation Synchronization):**
+- Removed Status dropdown (uses `is_active` boolean, not editable via form)
+- Removed Subcategory field (not implemented)
+- Updated Tags input format (comma-separated text, not checkboxes - same as Flow 2)
+- Updated file max size (5MB, not 10MB - same as Flow 2)
+- Added `embed_url` field support (optional, same as Flow 2)
+- Updated success response format to match implementation
+- Updated success redirect behavior (always redirects to Item List)
+- Verified version conflict detection implementation
+- Verified state-based rules (cannot edit deleted/inactive items)
+- All validation rules match Flow 2 (Item Creation)
+
 **Next Steps:**
-- Implement Flow 5 API endpoint with clarifications
-- Create comprehensive test cases (positive, negative, boundary)
-- Create Functional Specification (FS) for Flow 5
-- Create Architecture Document for Flow 5
+- Implementation complete and synchronized
+- Test against updated requirements
+- Proceed to Flow 6 (Item Delete) review
 
 ---
 
-**Document Version:** 1.1 (Updated)  
-**Status:** ✅ LOCKED - Ready for Implementation
+**Document Version:** 1.2 (Updated to match implementation)  
+**Status:** ✅ UPDATED - Synchronized with implementation
 

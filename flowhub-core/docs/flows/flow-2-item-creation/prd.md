@@ -52,14 +52,16 @@ Users need to create items in FlowHub with different types, each requiring speci
 ### **Item Creation Flow:**
 
 1. User navigates to "Create Item" page (must be authenticated)
-2. User sees item creation form with fields:
+2. User sees item creation form with fields (in this order):
    - **Name** (required, text input)
    - **Description** (required, textarea)
    - **Item Type** (required, dropdown: Physical, Digital, Service)
+   - **Conditional Fields** (appear based on Item Type selection - see Section 6)
    - **Price** (required, number input)
-   - **Category** (required, dropdown or text input)
-   - **Tags** (optional, multi-select or comma-separated)
+   - **Category** (required, text input)
+   - **Tags** (optional, comma-separated text input)
    - **File Upload** (optional, file input)
+   - **Embed URL** (optional, URL input - for iframe content in item details)
 3. **Conditional Fields Appear Based on Item Type:**
    - **If Physical:** Weight (required), Dimensions (required: length, width, height)
    - **If Digital:** Download URL (required), File Size (required)
@@ -82,8 +84,15 @@ Users need to create items in FlowHub with different types, each requiring speci
     - Business rule validation (400 if rules violated)
     - Duplicate check (409 if duplicate exists)
     - Save to MongoDB (201 if successful)
-11. **Success Response:** Show success message, redirect to Item List or show created item
+11. **Success Response:** 
+    - Show success toast message: "Item created successfully!"
+    - Redirect to Item List page (`/items`)
+    - Pass success message in navigation state
 12. **Error Response:** Display appropriate error message based on error code
+    - Form-level errors shown at top of form
+    - Field-specific errors shown inline below each field
+    - File errors shown in file upload component
+    - Toast notification shown for all errors
 
 ---
 
@@ -290,7 +299,9 @@ Process validations in this exact sequence. Stop and return error at first failu
 
 **Tags:**
 - Required: No
-- Type: Array of strings
+- Type: Array of strings (input as comma-separated string)
+- Input Format: Comma-separated string (e.g., "tag1, tag2, tag3")
+- Processing: Split by comma, trim whitespace, filter empty values
 - Max Items: 10 tags
 - Each tag: 1-30 characters
 - Tags must be unique (no duplicates)
@@ -302,6 +313,7 @@ Process validations in this exact sequence. Stop and return error at first failu
   - Algorithm: When validating tags array, compare each tag case-insensitively; reject if any duplicates found
 - **Example:** Tags ["Electronics", "COMPUTER", "Laptop"] → Valid (all unique when lowercased)
 - **Example:** Tags ["electronics", "Electronics"] → Invalid (duplicate when normalized)
+- **UI Implementation:** Single text input with placeholder "tag1, tag2, tag3"
 
 **Conditional Fields (Validated Based on Item Type - See Section 6):**
 
@@ -554,6 +566,7 @@ Process validations in this exact sequence. Stop and return error at first failu
 
 **Optional Fields:**
 - `file_path` (String, path to uploaded file)
+- `embed_url` (String, URL for embedded content - used in item details modal for iframe display)
 
 **Indexes:**
 - Compound unique index: `{normalizedName: 1, normalizedCategory: 1}` (prevents duplicates at DB level)
@@ -613,7 +626,34 @@ Process validations in this exact sequence. Stop and return error at first failu
 
 ---
 
-## **13. Out of Scope**
+## **13. Additional Implementation Details**
+
+### **Embed URL Field:**
+- **Purpose:** Optional field for storing URLs that will be embedded in item details modal (Flow 4)
+- **Type:** String (URL format)
+- **Validation:** Valid URL format (optional field, no strict validation)
+- **Storage:** Stored in `embed_url` field in database
+- **Usage:** Displayed in iframe within item details modal
+- **UI:** Text input with placeholder "https://example.com/embed/content"
+
+### **Form Behavior:**
+- **Conditional Field Clearing:** When Item Type changes, all conditional fields are automatically cleared
+- **Real-time Validation:** Fields validated on blur (when user leaves field)
+- **File Validation:** File type and size validated immediately upon selection
+- **Error Display:** 
+  - Form-level errors shown at top of form
+  - Field-specific errors shown inline below each field
+  - File errors shown in file upload component
+- **Success Handling:** 
+  - Success toast notification displayed
+  - Automatic redirect to Item List page
+  - Success message passed in navigation state
+
+### **Cancel Button:**
+- User can click "Cancel" button to return to Item List page without creating item
+- No confirmation dialog (immediate navigation)
+
+## **14. Out of Scope**
 
 - Bulk item creation
 - Item templates
@@ -624,14 +664,23 @@ Process validations in this exact sequence. Stop and return error at first failu
 - File compression
 - Item versioning
 - Item approval workflow
+- Multi-select tag input (uses comma-separated text input instead)
 
 ---
 
-## **14. Approval & Sign-off**
+## **15. Approval & Sign-off**
 
-**PRD Status:** ✅ **FINAL / LOCKED - ALL AMBIGUITIES RESOLVED & VERIFIED**  
-**Version:** 1.4 (Final - All Critical Ambiguities Resolved via Gemini Architecture Analysis)  
-**Date Approved:** December 17, 2024
+**PRD Status:** ✅ **UPDATED - Synchronized with Implementation**  
+**Version:** 1.5 (Updated to match implementation)  
+**Date Updated:** December 2024
+
+**Changes in v1.5 (Implementation Synchronization):**
+- Added `embed_url` optional field (for iframe content in item details)
+- Clarified tags input format (comma-separated text input, not multi-select)
+- Updated form field order to match implementation
+- Added success redirect behavior (always redirects to Item List)
+- Added form behavior details (conditional field clearing, error display, cancel button)
+- Updated success response handling (toast notification + redirect)
 
 **Changes in v1.4 (Critical Ambiguity Resolutions - Gemini Architecture Analysis):**
 - **Ambiguity 1 - Similar Items Algorithm:** Added adaptive prefix matching algorithm for names <5 characters
@@ -687,12 +736,12 @@ Process validations in this exact sequence. Stop and return error at first failu
 - Stakeholders: ✅ Approved
 
 **Next Steps:**
-- Update Implementation to match clarified PRD
+- Implementation complete and synchronized
 - Test against updated requirements
-- Proceed to Flow 3 (Item List)
+- Proceed to Flow 3 (Item List) review
 
 ---
 
-**Document Version:** 1.4 (Final - All Critical Ambiguities Resolved)  
-**Status:** ✅ LOCKED - Ready for Implementation Alignment
+**Document Version:** 1.5 (Updated to match implementation)  
+**Status:** ✅ UPDATED - Synchronized with implementation
 
