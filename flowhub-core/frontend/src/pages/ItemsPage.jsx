@@ -114,6 +114,17 @@ export default function ItemsPage() {
     fetchItems(); // Refresh the list
   };
 
+  // State for debounced search term to avoid firing API on every keystroke
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+
+  // Update debounced search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   /**
    * Fetch items from API
    */
@@ -123,7 +134,7 @@ export default function ItemsPage() {
       setError(null);
 
       const params = {
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         status: status !== 'all' ? status : undefined,
         category: category !== 'all' ? category : undefined,
         sort_by: sortBy,
@@ -153,7 +164,7 @@ export default function ItemsPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [search, status, category, sortBy, sortOrder, pagination.page, pagination.limit]);
+  }, [debouncedSearch, status, category, sortBy, sortOrder, pagination.page, pagination.limit]);
 
   /**
    * Update URL parameters
@@ -187,11 +198,11 @@ export default function ItemsPage() {
       clearTimeout(searchTimeoutRef.current);
     }
     
-    // Set new timeout
+    // Set new timeout to reset pagination after 500ms of typing stop
     searchTimeoutRef.current = setTimeout(() => {
+      setPagination(prev => ({ ...prev, page: 1 })); 
       setIsUserActive(false);
-      setPagination(prev => ({ ...prev, page: 1 })); // Reset to page 1 on search
-    }, 2000); // Resume auto-refresh 2s after typing stops
+    }, 500); 
   }, []);
 
   /**
@@ -626,10 +637,21 @@ export default function ItemsPage() {
             </div>
           )}
 
-          {/* Items Table */}
-          {!loading && items.length > 0 && (
-            <>
-              <div className="overflow-x-auto">
+          {/* Items Table Container */}
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden relative min-h-[400px]">
+            {/* Search/Filter Loader Overlay */}
+            {loading && items.length > 0 && (
+              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex items-center justify-center transition-all duration-300">
+                <div className="flex flex-col items-center bg-white px-6 py-4 rounded-2xl shadow-xl border border-slate-100">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+                  <p className="mt-3 text-sm font-bold text-indigo-900">Updating list...</p>
+                </div>
+              </div>
+            )}
+
+            {items.length > 0 ? (
+              <>
+                <div className="overflow-x-auto">
                 <table
                   className="min-w-full divide-y divide-slate-200 table-fixed"
                   role="table"
@@ -894,7 +916,8 @@ export default function ItemsPage() {
                 </div>
               )}
             </>
-          )}
+          ) : null}
+        </div>
       </Card>
 
       {/* Item Details Modal (Flow 4) */}

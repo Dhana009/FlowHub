@@ -122,25 +122,22 @@ export default function Toast({ message, type = TOAST_TYPES.INFO, onDismiss, dur
       `}
       data-testid={`toast-${type}`}
     >
-      <div className="p-4 flex items-start">
-        <div className={`flex-shrink-0 p-2 rounded-lg ${iconColors[type] || iconColors[TOAST_TYPES.INFO]}`}>
+      <div className="px-4 py-3 flex items-center">
+        <div className={`flex-shrink-0 p-1.5 rounded-md ${iconColors[type] || iconColors[TOAST_TYPES.INFO]}`}>
           {icons[type] || icons[TOAST_TYPES.INFO]}
         </div>
-        <div className="ml-4 flex-1 pt-0.5">
-          <p className="text-sm font-bold text-slate-900 leading-tight">
-            {titles[type] || titles[TOAST_TYPES.INFO]}
-          </p>
-          <p className="mt-1 text-sm text-slate-600 leading-relaxed font-medium">
+        <div className="ml-3 flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-800 leading-tight truncate">
             {message}
           </p>
         </div>
         <button
           onClick={handleDismiss}
-          className="ml-4 flex-shrink-0 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg focus:outline-none transition-all"
+          className="ml-3 flex-shrink-0 p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md focus:outline-none transition-all"
           aria-label="Dismiss notification"
           data-testid="toast-dismiss-button"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>

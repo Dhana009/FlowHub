@@ -40,6 +40,11 @@ async function login(email, password, rememberMe = false, req = null) {
     throw new Error('Invalid email or password');
   }
 
+  // Check if user is active (Security Guardrail)
+  if (user.isActive === false) {
+    throw new Error('Your account has been deactivated. Please contact an administrator.');
+  }
+
   // Verify password
   const isPasswordValid = await verifyPassword(password, user.passwordHash);
   if (!isPasswordValid) {
@@ -330,6 +335,11 @@ async function refreshAccessToken(refreshToken) {
   const user = await User.findById(decoded.sub);
   if (!user) {
     throw new Error('User not found');
+  }
+
+  // Check if user is active (Security Guardrail)
+  if (user.isActive === false) {
+    throw new Error('Account deactivated');
   }
 
   // Generate new access token

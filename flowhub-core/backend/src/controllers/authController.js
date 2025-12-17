@@ -16,8 +16,12 @@ const { validateEmail, validateName, validateOTP } = require('../utils/validatio
  * @param {boolean} rememberMe - Whether to remember user
  */
 function setRefreshTokenCookie(res, refreshToken, rememberMe = false) {
-  const maxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000; // 30 days or 7 days
+  const maxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
 
+  // PRODUCTION HARDENING: 
+  // SameSite: 'none' and Secure: true are REQUIRED for Vercel -> Render communication
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

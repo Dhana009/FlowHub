@@ -95,13 +95,13 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return api(originalRequest);
         } else {
-          // Refresh failed (no valid refresh token) - clear auth and redirect
+          // Refresh failed (no valid refresh token) - clear auth
+          // DO NOT perform window.location.href redirect here as it breaks React Router logic
+          // and causes the infinite loop you saw on Vercel.
           processQueue(new Error('Session expired'), null);
           if (clearAuthFunction) {
             clearAuthFunction();
           }
-          // Redirect to login
-          window.location.href = '/login';
           return Promise.reject(new Error('Session expired'));
         }
       } catch (refreshError) {
@@ -110,8 +110,6 @@ api.interceptors.response.use(
         if (clearAuthFunction) {
           clearAuthFunction();
         }
-        // Redirect to login on refresh failure
-        window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
