@@ -105,7 +105,7 @@ export default function DeleteConfirmationModal({
 
     } catch (err) {
       // Check if request was cancelled
-      if (err.isCancelled || abortControllerRef.current.signal.aborted) {
+      if (err.isCancelled || abortControllerRef.current?.signal.aborted) {
         return;
       }
 
@@ -271,18 +271,9 @@ export default function DeleteConfirmationModal({
 
   return (
     <>
-      {/* Overlay (PRD Section 7.1) - Must cover header */}
+      {/* Overlay (PRD Section 7.1) - High z-index to cover Header and Sidebar */}
       <div
-        className="fixed bg-black/60 backdrop-blur-sm transition-opacity duration-300"
-        style={{ 
-          zIndex: 100,
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100vw',
-          height: '100vh'
-        }}
+        className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 z-[150]"
         aria-hidden="true"
         onClick={(e) => {
           if (!isDeleting) {
@@ -297,7 +288,7 @@ export default function DeleteConfirmationModal({
         aria-modal="true"
         aria-labelledby="delete-modal-title"
         aria-describedby="delete-modal-message"
-        className="fixed inset-0 z-[101] flex items-center justify-center pointer-events-none"
+        className="fixed inset-0 z-[160] flex items-center justify-center pointer-events-none"
         data-testid="delete-confirm-modal"
       >
         {/* Modal Container (PRD Section 7.1) */}

@@ -48,13 +48,13 @@ export default function Sidebar({ isOpen, onClose }) {
     <>
       {/* Desktop Sidebar - Dark theme with logo and Create Item button */}
       <aside
-        className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex"
+        className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-[60] lg:flex"
         role="navigation"
         aria-label="Main navigation"
       >
         <div className="flex flex-col w-60 h-full bg-gradient-to-b from-slate-800 to-slate-900 border-r border-slate-700/50">
-          {/* Logo Section */}
-          <div className="px-4 py-6 border-b border-slate-700/50">
+          {/* Logo Section - Height matched to Header (64px) */}
+          <div className="px-4 h-16 flex items-center border-b border-slate-700/50">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
                 <span className="text-white text-base font-bold">F</span>
@@ -125,13 +125,13 @@ export default function Sidebar({ isOpen, onClose }) {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-gray-600 bg-opacity-75 z-30 lg:hidden"
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[65] lg:hidden"
             onClick={onClose}
             aria-hidden="true"
           />
           {/* Sidebar Panel */}
           <aside
-            className="fixed inset-y-0 left-0 flex flex-col w-72 bg-gradient-to-b from-slate-800 to-slate-900 z-40 transform transition-transform duration-300 ease-in-out lg:hidden"
+            className="fixed inset-y-0 left-0 flex flex-col w-72 bg-gradient-to-b from-slate-800 to-slate-900 z-[70] transform transition-transform duration-300 ease-in-out lg:hidden"
             role="navigation"
             aria-label="Main navigation"
             aria-hidden={!isOpen}

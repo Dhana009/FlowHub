@@ -378,6 +378,58 @@ export async function getItem(itemId, signal = null) {
 }
 
 /**
+ * Start a bulk operation (Flow 7)
+ * POST /api/v1/bulk-operations
+ * 
+ * @param {string} operation - Operation type ('delete' | 'update_category')
+ * @param {array} itemIds - Array of item IDs
+ * @param {object} [payload] - Optional payload (e.g., { category: 'New Category' })
+ * @returns {Promise<object>} - Job initialization data
+ */
+export async function startBulkOperation(operation, itemIds, payload = {}) {
+  try {
+    const response = await api.post('/bulk-operations', {
+      operation,
+      itemIds,
+      payload
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      const errorData = error.response.data;
+      const customError = new Error(errorData.message || 'Failed to start bulk operation');
+      customError.statusCode = error.response.status;
+      customError.data = errorData;
+      throw customError;
+    }
+    throw new Error('Network error. Please check your connection.');
+  }
+}
+
+/**
+ * Poll bulk job status (Flow 7)
+ * GET /api/v1/bulk-operations/:jobId
+ * 
+ * @param {string} jobId - Job ID to poll
+ * @returns {Promise<object>} - Job status and progress data
+ */
+export async function getBulkJobStatus(jobId) {
+  try {
+    const response = await api.get(`/bulk-operations/${jobId}`);
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      const errorData = error.response.data;
+      const customError = new Error(errorData.message || 'Failed to fetch job status');
+      customError.statusCode = error.response.status;
+      customError.data = errorData;
+      throw customError;
+    }
+    throw new Error('Network error. Please check your connection.');
+  }
+}
+
+/**
  * Update an existing item (Flow 5)
  * PRD Reference: Flow 5 - Item Edit
  * 

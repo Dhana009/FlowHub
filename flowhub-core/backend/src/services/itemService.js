@@ -379,24 +379,21 @@ async function updateItem(itemId, updateData, file, userId, providedVersion) {
   }
 
   // Step 4: Check version (required, must match current version)
-  if (providedVersion === undefined || providedVersion === null) {
+  const currentVersion = parseInt(existingItem.version, 10);
+  const versionToVerify = parseInt(providedVersion, 10);
+
+  if (isNaN(versionToVerify) || versionToVerify < 1) {
     const error = new Error('Version field is required and must be a positive integer');
     error.statusCode = 400;
     throw error;
   }
 
-  if (typeof providedVersion !== 'number' || !Number.isInteger(providedVersion) || providedVersion < 1) {
-    const error = new Error('Version field is required and must be a positive integer');
-    error.statusCode = 400;
-    throw error;
-  }
-
-  if (existingItem.version !== providedVersion) {
-    const error = new Error(`Item was modified by another user. Expected version: ${existingItem.version}, Provided: ${providedVersion}`);
+  if (currentVersion !== versionToVerify) {
+    const error = new Error(`Item was modified by another user. Expected version: ${currentVersion}, Provided: ${versionToVerify}`);
     error.statusCode = 409;
     error.errorCodeDetail = 'VERSION_CONFLICT';
-    error.currentVersion = existingItem.version;
-    error.providedVersion = providedVersion;
+    error.currentVersion = currentVersion;
+    error.providedVersion = versionToVerify;
     throw error;
   }
 
@@ -594,7 +591,7 @@ async function updateItem(itemId, updateData, file, userId, providedVersion) {
   const updatedItem = await Item.findOneAndUpdate(
     { 
       _id: itemId, 
-      version: providedVersion,  // Optimistic locking: version must match
+      version: versionToVerify,  // Use the verified number
       created_by: userId,  // Double-check ownership
       is_active: true,  // Double-check active status
       deleted_at: null  // Double-check not deleted
@@ -605,13 +602,9 @@ async function updateItem(itemId, updateData, file, userId, providedVersion) {
 
   // If update returned null, version conflict occurred during update
   if (!updatedItem) {
-    // Re-fetch to get current version
-    const currentItem = await Item.findById(itemId);
-    const error = new Error(`Item was modified by another user. Expected version: ${currentItem.version}, Provided: ${providedVersion}`);
+    const error = new Error('Item version conflict occurred');
     error.statusCode = 409;
     error.errorCodeDetail = 'VERSION_CONFLICT';
-    error.currentVersion = currentItem.version;
-    error.providedVersion = providedVersion;
     throw error;
   }
 

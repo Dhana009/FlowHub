@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getItems, deleteItem, activateItem } from '../services/itemService';
+import { getItems, deleteItem, activateItem, startBulkOperation } from '../services/itemService';
 import Button from '../components/common/Button';
 import ErrorMessage from '../components/common/ErrorMessage';
 import Input from '../components/common/Input';
 import ItemDetailsModal from '../components/items/ItemDetailsModal';
 import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
 import Card from '../components/ui/Card';
+import BulkActionsBar from '../components/items/BulkActionsBar';
+import BulkOperationModal from '../components/items/BulkOperationModal';
+import BulkCategoryModal from '../components/items/BulkCategoryModal';
 
 /**
  * Items Page - Flow 3 Implementation
@@ -51,6 +54,64 @@ export default function ItemsPage() {
   // Delete modal state (Flow 6)
   const [deleteModalItem, setDeleteModalItem] = useState(null);
   const [deleteModalTriggerElement, setDeleteModalTriggerElement] = useState(null);
+
+  // Bulk operation state (Flow 7)
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [bulkJobId, setBulkJobId] = useState(null);
+  const [bulkInitialProgress, setBulkInitialProgress] = useState(0);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isBulkCategoryModalOpen, setIsBulkCategoryModalOpen] = useState(false);
+
+  /**
+   * Toggle item selection
+   */
+  const handleSelectItem = (itemId) => {
+    setSelectedItems(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId) 
+        : [...prev, itemId]
+    );
+  };
+
+  /**
+   * Toggle select all on current page
+   * Selects all items regardless of status (PRD Section 5)
+   */
+  const handleSelectAll = () => {
+    if (selectedItems.length === items.length) {
+      setSelectedItems([]);
+    } else {
+      setSelectedItems(items.map(item => item._id));
+    }
+  };
+
+  /**
+   * Start a bulk operation
+   */
+  const handleStartBulkJob = async (operation, payload = {}) => {
+    try {
+      setLoading(true);
+      const response = await startBulkOperation(operation, selectedItems, payload);
+      setBulkJobId(response.job_id);
+      setBulkInitialProgress(response.job_progress || 0);
+      setIsBulkModalOpen(true);
+      setIsBulkCategoryModalOpen(false);
+    } catch (err) {
+      showToast(err.message || 'Failed to start bulk operation', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Bulk job complete handler
+   */
+  const handleBulkJobComplete = () => {
+    setIsBulkModalOpen(false);
+    setBulkJobId(null);
+    setSelectedItems([]);
+    fetchItems(); // Refresh the list
+  };
 
   /**
    * Fetch items from API
@@ -456,9 +517,9 @@ export default function ItemsPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col">
       {/* Page Description */}
-      <div className="mb-2">
+      <div className="mb-6">
         <p className="text-base text-slate-600 leading-relaxed">
           Manage and view all your items
         </p>
@@ -603,6 +664,16 @@ export default function ItemsPage() {
                 >
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
+                      <th className="px-6 py-3.5 text-left">
+                        <input
+                          type="checkbox"
+                          checked={items.length > 0 && selectedItems.length === items.length}
+                          onChange={handleSelectAll}
+                          className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+                          aria-label="Select all items"
+                          data-testid="select-all-checkbox"
+                        />
+                      </th>
                       <th
                         className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group"
                         onClick={() => handleSort('name')}
@@ -664,7 +735,17 @@ export default function ItemsPage() {
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
                     {items.map((item) => (
-                      <tr key={item._id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={item._id} className={`hover:bg-slate-50 transition-colors ${selectedItems.includes(item._id) ? 'bg-indigo-50/50' : ''}`}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={selectedItems.includes(item._id)}
+                            onChange={() => handleSelectItem(item._id)}
+                            className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+                            aria-label={`Select ${item.name}`}
+                            data-testid={`select-item-${item._id}`}
+                          />
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900" data-testid={`item-name-${item._id}`}>
                           {item.name}
                         </td>
@@ -853,6 +934,30 @@ export default function ItemsPage() {
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
         triggerElement={deleteModalTriggerElement}
+      />
+
+      {/* Bulk Operations Components (Flow 7) */}
+      <BulkActionsBar 
+        selectedCount={selectedItems.length}
+        onBulkDeactivate={() => handleStartBulkJob('deactivate')}
+        onBulkActivate={() => handleStartBulkJob('activate')}
+        onBulkUpdateCategory={() => setIsBulkCategoryModalOpen(true)}
+        onClearSelection={() => setSelectedItems([])}
+      />
+
+      <BulkOperationModal
+        isOpen={isBulkModalOpen}
+        jobId={bulkJobId}
+        initialProgress={bulkInitialProgress}
+        onComplete={handleBulkJobComplete}
+        onCancel={() => setIsBulkModalOpen(false)}
+      />
+
+      <BulkCategoryModal
+        isOpen={isBulkCategoryModalOpen}
+        categories={categories}
+        onConfirm={(category) => handleStartBulkJob('update_category', { category })}
+        onCancel={() => setIsBulkCategoryModalOpen(false)}
       />
 
       {/* Toast Notifications (Flow 6) */}

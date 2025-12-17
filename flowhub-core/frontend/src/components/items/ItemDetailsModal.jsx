@@ -76,6 +76,9 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
   const iframeTimeoutRef = useRef(null);
   const previousFocusRef = useRef(null);
 
+  // Check for reduced motion preference (Accessibility)
+  const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   // Maximum retry attempts (PRD Section 8.1)
   const MAX_RETRIES = 3;
 
@@ -238,7 +241,7 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
       }
     } catch (err) {
       // Check if request was cancelled
-      if (err.isCancelled || abortControllerRef.current.signal.aborted) {
+      if (err.isCancelled || abortControllerRef.current?.signal.aborted) {
         return;
       }
 

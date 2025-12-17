@@ -11,6 +11,7 @@ const cookieParser = require('cookie-parser');
 
 const authRoutes = require('./routes/authRoutes');
 const itemRoutes = require('./routes/itemRoutes');
+const bulkRoutes = require('./routes/bulkRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const path = require('path');
 
@@ -25,7 +26,7 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true, // Allow cookies (for refresh token)
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auto-refresh']
 }));
 
 // Body parsing middleware
@@ -47,6 +48,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/items', itemRoutes);
+app.use('/api/v1/bulk-operations', bulkRoutes);
 
 // Static file serving for uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
