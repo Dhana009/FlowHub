@@ -45,7 +45,8 @@ export default function SignUpForm() {
       email: '',
       password: '',
       confirmPassword: '',
-      otp: ''
+      otp: '',
+      role: 'EDITOR' // Default role for testing
     },
     {
       firstName,
@@ -53,7 +54,8 @@ export default function SignUpForm() {
       email,
       password: passwordStrength,
       confirmPassword: (value) => confirmPassword(value, values.password),
-      otp
+      otp,
+      role: (val) => (!val ? 'Role is required' : '')
     }
   );
 
@@ -161,7 +163,8 @@ export default function SignUpForm() {
           firstName: values.firstName,
           lastName: values.lastName,
           email: values.email,
-          password: values.password
+          password: values.password,
+          role: values.role
         },
         values.otp
       );
@@ -170,8 +173,8 @@ export default function SignUpForm() {
       // Token is already set by authService, but we need to update context
       await login(values.email, values.password, false);
       
-      // Redirect to items page
-      navigate('/items', { replace: true });
+      // Redirect to dashboard page
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       // If signup fails, go back to OTP step to allow retry
       setStep('otp');
@@ -339,6 +342,21 @@ export default function SignUpForm() {
             placeholder="Confirm your password"
             required
           />
+
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Account Role (Testing Only)</label>
+            <select
+              value={values.role}
+              onChange={(e) => handleChange('role', e.target.value)}
+              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white"
+              data-testid="signup-role-selector"
+            >
+              <option value="VIEWER">VIEWER (Read Only)</option>
+              <option value="EDITOR">EDITOR (Owner Only)</option>
+              <option value="ADMIN">ADMIN (Superuser)</option>
+            </select>
+            <p className="mt-1.5 text-xs text-slate-500">Choose a role to test Flow 8 RBAC boundaries.</p>
+          </div>
 
           <Button
             type="submit"

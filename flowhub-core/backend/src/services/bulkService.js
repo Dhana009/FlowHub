@@ -9,6 +9,7 @@
 const BulkJob = require('../models/BulkJob');
 const Item = require('../models/Item');
 const itemService = require('./itemService');
+const activityService = require('./activityService');
 
 /**
  * Create a new bulk job
@@ -71,6 +72,20 @@ async function createJob(userId, role, operation, itemIds, payload = {}) {
     status: toProcessIds.length === 0 ? 'completed' : 'pending'
   });
 
+  // Log activity (Flow 9)
+  activityService.logActivity({
+    userId,
+    action: 'BULK_OP_STARTED',
+    resourceType: 'BULK_JOB',
+    resourceId: job._id,
+    details: { 
+      operation, 
+      requested_count: itemIds.length,
+      to_process_count: toProcessIds.length,
+      skipped_count: skippedIds.length
+    }
+  });
+
   return job;
 }
 
@@ -99,7 +114,7 @@ async function processNextBatch(jobId, userId, role) {
   
   // SELF-HEALING: If all items are accounted for in result arrays, we are DONE
   if (doneCount >= job.totalItems) {
-    return await BulkJob.findOneAndUpdate(
+    const completedJob = await BulkJob.findOneAndUpdate(
       { _id: jobId, status: { $ne: 'completed' } },
       { 
         $set: { 
@@ -110,6 +125,24 @@ async function processNextBatch(jobId, userId, role) {
       },
       { new: true }
     );
+
+    if (completedJob) {
+      // Log activity (Flow 9)
+      activityService.logActivity({
+        userId,
+        action: 'BULK_OP_COMPLETED',
+        resourceType: 'BULK_JOB',
+        resourceId: jobId,
+        details: { 
+          operation: completedJob.operation,
+          success_count: completedJob.processedIds.length,
+          failed_count: completedJob.failedItems.length,
+          skipped_count: completedJob.skippedIds.length
+        }
+      });
+    }
+
+    return completedJob || job;
   }
 
   // 2. FIND AVAILABLE ITEMS (Not done and not currently in progress)

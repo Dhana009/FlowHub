@@ -77,6 +77,17 @@ export default function Header({ onMenuClick }) {
 
           {/* Right: Notifications and User Menu */}
           <div className="flex items-center gap-3">
+            {/* User Role Badge - Desktop Prominent */}
+            <div className="hidden sm:flex items-center mr-2">
+              <span className={`px-3 py-1 rounded-lg text-[10px] font-bold border tracking-wider uppercase shadow-sm ${
+                user?.role === 'ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                user?.role === 'EDITOR' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                'bg-slate-50 text-slate-600 border-slate-200'
+              }`}>
+                {user?.role} Access
+              </span>
+            </div>
+
             {/* Notifications */}
             <button
               className="relative p-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200"
@@ -102,11 +113,11 @@ export default function Header({ onMenuClick }) {
                   {user?.firstName?.[0]?.toUpperCase() || 'U'}
                 </div>
                 {/* User Info (Desktop) */}
-                <div className="hidden md:flex flex-col text-left">
+                <div className="hidden md:flex flex-col text-left mr-1">
                   <p className="text-sm font-bold text-slate-900 leading-none">
                     {user?.firstName} {user?.lastName}
                   </p>
-                  <p className="text-[11px] text-slate-500 leading-none mt-1">{user?.email}</p>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-none">{user?.email}</p>
                 </div>
                 {/* Dropdown Icon */}
                 <svg
@@ -144,7 +155,16 @@ export default function Header({ onMenuClick }) {
                       <p className="text-sm font-semibold text-slate-900">
                         {user?.firstName} {user?.lastName}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5">{user?.email}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-xs text-slate-500">{user?.email}</p>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold border leading-none uppercase ${
+                          user?.role === 'ADMIN' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                          user?.role === 'EDITOR' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                          'bg-slate-50 text-slate-600 border-slate-100'
+                        }`}>
+                          {user?.role}
+                        </span>
+                      </div>
                     </div>
                     <button
                       onClick={() => {

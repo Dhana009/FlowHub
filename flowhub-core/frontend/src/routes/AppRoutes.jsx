@@ -9,6 +9,8 @@ import DashboardPage from '../pages/DashboardPage';
 import ItemsPage from '../pages/ItemsPage';
 import CreateItemPage from '../pages/CreateItemPage';
 import EditItemPage from '../pages/EditItemPage';
+import ActivityLogsPage from '../pages/ActivityLogsPage';
+import UsersPage from '../pages/UsersPage';
 
 /**
  * Root Route Component
@@ -110,7 +112,7 @@ export default function AppRoutes() {
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <AppLayout>
+            <AppLayout title="System Dashboard">
               <DashboardPage />
             </AppLayout>
           </ProtectedRoute>
@@ -120,7 +122,7 @@ export default function AppRoutes() {
         path="/items"
         element={
           <ProtectedRoute>
-            <AppLayout>
+            <AppLayout title="Items Management">
               <ItemsPage />
             </AppLayout>
           </ProtectedRoute>
@@ -130,7 +132,7 @@ export default function AppRoutes() {
         path="/items/create"
         element={
           <ProtectedRoute>
-            <AppLayout title="Create Item">
+            <AppLayout title="Create New Item">
               <CreateItemPage />
             </AppLayout>
           </ProtectedRoute>
@@ -140,8 +142,28 @@ export default function AppRoutes() {
         path="/items/:id/edit"
         element={
           <ProtectedRoute>
-            <AppLayout>
+            <AppLayout title="Edit Item">
               <EditItemPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/activity-logs"
+        element={
+          <ProtectedRoute>
+            <AppLayout title="Activity Logs">
+              <ActivityLogsPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute>
+            <AppLayout title="User Management">
+              <UsersPage />
             </AppLayout>
           </ProtectedRoute>
         }

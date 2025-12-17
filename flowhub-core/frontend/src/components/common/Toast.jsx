@@ -64,10 +64,24 @@ export default function Toast({ message, type = TOAST_TYPES.INFO, onDismiss, dur
   };
 
   const typeStyles = {
-    [TOAST_TYPES.SUCCESS]: 'bg-emerald-50 border-emerald-500 text-emerald-800',
-    [TOAST_TYPES.ERROR]: 'bg-red-50 border-red-500 text-red-800',
-    [TOAST_TYPES.INFO]: 'bg-indigo-50 border-indigo-500 text-indigo-800',
-    [TOAST_TYPES.WARNING]: 'bg-amber-50 border-amber-500 text-amber-800'
+    [TOAST_TYPES.SUCCESS]: 'bg-white border-emerald-500 text-emerald-900 shadow-emerald-100',
+    [TOAST_TYPES.ERROR]: 'bg-white border-red-500 text-red-900 shadow-red-100',
+    [TOAST_TYPES.INFO]: 'bg-white border-indigo-500 text-indigo-900 shadow-indigo-100',
+    [TOAST_TYPES.WARNING]: 'bg-white border-amber-500 text-amber-900 shadow-amber-100'
+  };
+
+  const iconColors = {
+    [TOAST_TYPES.SUCCESS]: 'text-emerald-500 bg-emerald-50',
+    [TOAST_TYPES.ERROR]: 'text-red-500 bg-red-50',
+    [TOAST_TYPES.INFO]: 'text-indigo-500 bg-indigo-50',
+    [TOAST_TYPES.WARNING]: 'text-amber-500 bg-amber-50'
+  };
+
+  const titles = {
+    [TOAST_TYPES.SUCCESS]: 'Success',
+    [TOAST_TYPES.ERROR]: 'Error',
+    [TOAST_TYPES.INFO]: 'Information',
+    [TOAST_TYPES.WARNING]: 'Warning'
   };
 
   const icons = {
@@ -100,24 +114,29 @@ export default function Toast({ message, type = TOAST_TYPES.INFO, onDismiss, dur
       role="alert"
       aria-live={type === TOAST_TYPES.ERROR ? 'assertive' : 'polite'}
       className={`
-        fixed top-4 right-4 z-50 max-w-sm w-full
+        relative z-50 max-w-sm w-full
         ${typeStyles[type] || typeStyles[TOAST_TYPES.INFO]}
-        border-l-4 rounded-lg shadow-lg
+        border-l-4 rounded-xl shadow-xl overflow-hidden
         transform transition-all duration-300 ease-in-out
         ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
       `}
       data-testid={`toast-${type}`}
     >
       <div className="p-4 flex items-start">
-        <div className="flex-shrink-0">
+        <div className={`flex-shrink-0 p-2 rounded-lg ${iconColors[type] || iconColors[TOAST_TYPES.INFO]}`}>
           {icons[type] || icons[TOAST_TYPES.INFO]}
         </div>
-        <div className="ml-3 flex-1">
-          <p className="text-sm font-medium">{message}</p>
+        <div className="ml-4 flex-1 pt-0.5">
+          <p className="text-sm font-bold text-slate-900 leading-tight">
+            {titles[type] || titles[TOAST_TYPES.INFO]}
+          </p>
+          <p className="mt-1 text-sm text-slate-600 leading-relaxed font-medium">
+            {message}
+          </p>
         </div>
         <button
           onClick={handleDismiss}
-          className="ml-4 flex-shrink-0 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
+          className="ml-4 flex-shrink-0 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg focus:outline-none transition-all"
           aria-label="Dismiss notification"
           data-testid="toast-dismiss-button"
         >
@@ -126,6 +145,21 @@ export default function Toast({ message, type = TOAST_TYPES.INFO, onDismiss, dur
           </svg>
         </button>
       </div>
+      {/* Progress bar for auto-dismiss */}
+      {autoDismissDuration > 0 && (
+        <div className="absolute bottom-0 left-0 h-1 w-full bg-slate-100">
+          <div 
+            className={`h-full transition-all duration-linear ${
+              type === TOAST_TYPES.SUCCESS ? 'bg-emerald-500' :
+              type === TOAST_TYPES.ERROR ? 'bg-red-500' :
+              type === TOAST_TYPES.WARNING ? 'bg-amber-500' : 'bg-indigo-500'
+            }`}
+            style={{ 
+              animation: `shrinkWidth ${autoDismissDuration}ms linear forwards`
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -138,19 +172,22 @@ export default function Toast({ message, type = TOAST_TYPES.INFO, onDismiss, dur
  * @param {function} onDismiss - Callback when toast is dismissed
  */
 export function ToastContainer({ toasts = [], onDismiss }) {
-  // Show max 3 toasts (PRD Section 12.2)
-  const visibleToasts = toasts.slice(0, 3);
+  // Show max 3 toasts
+  const visibleToasts = toasts.slice(-3); // Get the 3 most recent toasts
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2" data-testid="toast-container">
-      {visibleToasts.map((toast, index) => (
-        <div
-          key={toast.id}
-          className="transform transition-all duration-300"
-          style={{
-            transform: `translateY(${index * 80}px)`
-          }}
-        >
+    <div 
+      className="fixed top-20 right-6 z-[9999] flex flex-col space-y-4 w-full max-w-sm pointer-events-none" 
+      data-testid="toast-container"
+    >
+      <style>{`
+        @keyframes shrinkWidth {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+      `}</style>
+      {visibleToasts.map((toast) => (
+        <div key={toast.id} className="pointer-events-auto w-full animate-in slide-in-from-right-full duration-300">
           <Toast
             message={toast.message}
             type={toast.type}

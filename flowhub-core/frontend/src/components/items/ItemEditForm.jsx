@@ -285,10 +285,10 @@ export default function ItemEditForm({ item }) {
       // Check if response matches PRD success format
       if (result.status === 'success' && result.data) {
         // Success - show toast and redirect to items list
-        showToast('Item updated successfully!', 'success');
+        showToast('Item updated', 'success');
         navigate('/items', { 
           replace: true,
-          state: { message: 'Item updated successfully!' }
+          state: { message: 'Item updated' }
         });
       }
     } catch (error) {

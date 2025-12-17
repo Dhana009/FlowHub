@@ -12,6 +12,8 @@ const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/authRoutes');
 const itemRoutes = require('./routes/itemRoutes');
 const bulkRoutes = require('./routes/bulkRoutes');
+const activityRoutes = require('./routes/activityRoutes');
+const userRoutes = require('./routes/userRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const path = require('path');
 
@@ -49,6 +51,8 @@ app.get('/health', (req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/items', itemRoutes);
 app.use('/api/v1/bulk-operations', bulkRoutes);
+app.use('/api/v1/activities', activityRoutes);
+app.use('/api/v1/users', userRoutes);
 
 // Static file serving for uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

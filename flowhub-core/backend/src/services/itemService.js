@@ -11,6 +11,7 @@ const { validateItemCreation } = require('./validationService');
 const fileService = require('./fileService');
 const categoryService = require('./categoryService');
 const { withTransaction } = require('../utils/transactionHelper');
+const activityService = require('./activityService');
 
 /**
  * Create a new item with full validation and file upload support
@@ -80,6 +81,15 @@ async function createItem(itemData, file, userId) {
       }
 
       return createdItem;
+    });
+
+    // Log activity (Flow 9)
+    activityService.logActivity({
+      userId,
+      action: 'ITEM_CREATED',
+      resourceType: 'ITEM',
+      resourceId: result._id,
+      details: { name: result.name, category: result.category }
     });
 
     return result;
@@ -620,6 +630,19 @@ async function updateItem(itemId, updateData, file, userId, providedVersion, rol
     throw error;
   }
 
+  // Log activity (Flow 9)
+  activityService.logActivity({
+    userId,
+    action: 'ITEM_UPDATED',
+    resourceType: 'ITEM',
+    resourceId: updatedItem._id,
+    details: { 
+      name: updatedItem.name, 
+      version: updatedItem.version,
+      updated_fields: Object.keys(cleanUpdateData)
+    }
+  });
+
   return updatedItem;
 }
 
@@ -674,6 +697,15 @@ async function deleteItem(itemId, userId, role = null) {
     { new: true }
   );
 
+  // Log activity (Flow 9)
+  activityService.logActivity({
+    userId,
+    action: 'ITEM_DEACTIVATED',
+    resourceType: 'ITEM',
+    resourceId: deletedItem._id,
+    details: { name: deletedItem.name }
+  });
+
   return deletedItem;
 }
 
@@ -724,6 +756,15 @@ async function activateItem(itemId, userId, role = null) {
     },
     { new: true }
   );
+
+  // Log activity (Flow 9)
+  activityService.logActivity({
+    userId,
+    action: 'ITEM_ACTIVATED',
+    resourceType: 'ITEM',
+    resourceId: activatedItem._id,
+    details: { name: activatedItem.name }
+  });
 
   return activatedItem;
 }

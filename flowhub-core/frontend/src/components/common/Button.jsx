@@ -37,7 +37,8 @@ export default function Button({
   const variantClasses = {
     primary: 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white hover:from-indigo-700 hover:to-indigo-800 focus:ring-indigo-500 active:from-indigo-800 active:to-indigo-900 shadow-md hover:shadow-lg',
     secondary: 'bg-white text-slate-700 hover:bg-slate-50 focus:ring-indigo-500 active:bg-slate-100 border border-slate-300 shadow-sm hover:shadow-md',
-    danger: 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 focus:ring-red-500 active:from-red-800 active:to-red-900 shadow-md hover:shadow-lg'
+    danger: 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 focus:ring-red-500 active:from-red-800 active:to-red-900 shadow-md hover:shadow-lg',
+    success: 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800 focus:ring-emerald-500 active:from-emerald-800 active:to-emerald-900 shadow-md hover:shadow-lg'
   };
 
   return (

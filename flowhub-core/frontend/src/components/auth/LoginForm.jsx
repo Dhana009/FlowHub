@@ -51,8 +51,8 @@ export default function LoginForm() {
     try {
       await login(values.email, values.password, values.rememberMe);
       
-      // Redirect to items page (or originally requested page)
-      navigate('/items', { replace: true });
+      // Redirect to dashboard page
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       setSubmitError(
         error.response?.data?.error || 

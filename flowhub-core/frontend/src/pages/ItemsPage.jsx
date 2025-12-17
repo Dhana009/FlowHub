@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getItems, deleteItem, activateItem, startBulkOperation } from '../services/itemService';
 import useAuth from '../hooks/useAuth';
+import { useToast } from '../contexts/ToastContext';
 import Button from '../components/common/Button';
 import ErrorMessage from '../components/common/ErrorMessage';
 import Input from '../components/common/Input';
@@ -21,6 +22,7 @@ export default function ItemsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { canPerform } = useAuth();
+  const { showToast } = useToast();
 
   // State
   const [items, setItems] = useState([]);
@@ -356,33 +358,6 @@ export default function ItemsPage() {
     return () => clearTimeout(timeout);
   }, [search]);
 
-  // Toast notification state (Flow 6)
-  const [toasts, setToasts] = useState([]);
-  
-  /**
-   * Show toast notification (PRD Section 12)
-   */
-  const showToast = useCallback((message, type = 'info', duration = null) => {
-    const toastId = Date.now() + Math.random();
-    const newToast = { id: toastId, message, type, duration };
-    setToasts(prev => [...prev, newToast].slice(-3)); // Max 3 toasts (PRD Section 12.2)
-    
-    // Auto-dismiss based on type
-    const autoDuration = duration || (type === 'success' ? 3000 : type === 'error' ? 5000 : 3000);
-    if (autoDuration > 0) {
-      setTimeout(() => {
-        setToasts(prev => prev.filter(t => t.id !== toastId));
-      }, autoDuration);
-    }
-  }, []);
-
-  /**
-   * Dismiss toast
-   */
-  const dismissToast = useCallback((toastId) => {
-    setToasts(prev => prev.filter(t => t.id !== toastId));
-  }, []);
-
   /**
    * Handle Delete button click (Flow 6)
    * PRD Section 5: User Journey - Click "Delete" button on item row
@@ -408,7 +383,7 @@ export default function ItemsPage() {
       setDeleteModalTriggerElement(null);
 
       // PRD Section 12.1: Show success toast
-      showToast('Item deactivated successfully', 'success', 3000);
+      showToast('Item deactivated', 'success', 3000);
 
       // PRD Section 10.1: Refresh item list (fetch updated list from API)
       await fetchItems();
@@ -422,7 +397,7 @@ export default function ItemsPage() {
         // PRD Section 11.1: Close modal, show error toast
         setDeleteModalItem(null);
         setDeleteModalTriggerElement(null);
-        showToast(error.message || 'Failed to deactivate item', 'error', 5000);
+        showToast(error.message || 'Deactivation failed', 'error', 5000);
       } else {
         // PRD Section 11.1: Keep modal open, show error in modal (recoverable errors)
         // Error will be handled by DeleteConfirmationModal component
@@ -456,14 +431,14 @@ export default function ItemsPage() {
       await activateItem(item._id);
 
       // Show success toast
-      showToast('Item activated successfully', 'success', 3000);
+      showToast('Item activated', 'success', 3000);
 
       // Refresh item list
       await fetchItems();
 
     } catch (error) {
       // Show error toast
-      showToast(error.message || 'Failed to activate item', 'error', 5000);
+      showToast(error.message || 'Activation failed', 'error', 5000);
     }
   }, [showToast, fetchItems]);
 
@@ -952,61 +927,6 @@ export default function ItemsPage() {
         onComplete={handleBulkJobComplete}
         onCancel={() => setIsBulkModalOpen(false)}
       />
-
-      {/* Toast Notifications (Flow 6) */}
-      {toasts.length > 0 && (
-        <div className="fixed top-20 right-4 z-[110] space-y-2" data-testid="toast-container">
-          {toasts.map((toast, index) => (
-            <div
-              key={toast.id}
-              className="transform transition-all duration-300"
-              style={{
-                transform: `translateY(${index * 80}px)`
-              }}
-            >
-              <div
-                role="alert"
-                aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
-                className={`
-                  max-w-sm w-full rounded-lg shadow-lg border-l-4 p-4 flex items-start
-                  ${toast.type === 'success' 
-                    ? 'bg-green-50 border-green-500 text-green-800' 
-                    : toast.type === 'error'
-                    ? 'bg-red-50 border-red-500 text-red-800'
-                    : 'bg-blue-50 border-blue-500 text-blue-800'
-                  }
-                `}
-                data-testid={`toast-${toast.type}`}
-              >
-                <div className="flex-shrink-0">
-                  {toast.type === 'success' ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  )}
-                </div>
-                <div className="ml-3 flex-1">
-                  <p className="text-sm font-medium">{toast.message}</p>
-                </div>
-                <button
-                  onClick={() => dismissToast(toast.id)}
-                  className="ml-4 flex-shrink-0 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
-                  aria-label="Dismiss notification"
-                  data-testid="toast-dismiss-button"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

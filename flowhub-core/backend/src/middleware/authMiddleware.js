@@ -6,6 +6,7 @@
  */
 
 const { verifyJWT } = require('../services/tokenService');
+const User = require('../models/User');
 
 /**
  * Verify JWT token from Authorization header
@@ -14,7 +15,7 @@ const { verifyJWT } = require('../services/tokenService');
  * @param {object} res - Express response
  * @param {function} next - Express next function
  */
-function verifyToken(req, res, next) {
+async function verifyToken(req, res, next) {
   try {
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;
@@ -23,7 +24,7 @@ function verifyToken(req, res, next) {
       return res.status(401).json({
         status: 'error',
         error_code: 401,
-        error_type: 'Unauthorized - Authentication required',
+        error_type: 'Unauthorized',
         message: 'Authentication required. Please log in.',
         timestamp: new Date().toISOString(),
         path: req.originalUrl || req.path
@@ -32,14 +33,40 @@ function verifyToken(req, res, next) {
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
-    // Verify token
+    // Verify token signature and expiration
     const decoded = verifyJWT(token);
+
+    // CRITICAL SECURITY CHECK: Verify user still exists in DB
+    // This handles the "User deleted from DB but token still valid" bug
+    const user = await User.findById(decoded.sub).select('+isActive');
+    
+    if (!user) {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'User Deleted',
+        message: 'Your account no longer exists. Access denied.',
+        timestamp: new Date().toISOString(),
+        path: req.originalUrl || req.path
+      });
+    }
+
+    if (user.isActive === false) {
+      return res.status(403).json({
+        status: 'error',
+        error_code: 403,
+        error_type: 'Account Deactivated',
+        message: 'Your account has been deactivated. Please contact support.',
+        timestamp: new Date().toISOString(),
+        path: req.originalUrl || req.path
+      });
+    }
 
     // Attach user info to request
     req.user = {
-      id: decoded.sub,
-      email: decoded.email,
-      role: decoded.role
+      id: user._id.toString(),
+      email: user.email,
+      role: user.role
     };
 
     next();
@@ -47,8 +74,8 @@ function verifyToken(req, res, next) {
     return res.status(401).json({
       status: 'error',
       error_code: 401,
-      error_type: 'Unauthorized - Authentication required',
-      message: 'Authentication required. Please log in.',
+      error_type: 'Invalid Token',
+      message: 'Your session is invalid or has expired. Please log in again.',
       timestamp: new Date().toISOString(),
       path: req.originalUrl || req.path
     });

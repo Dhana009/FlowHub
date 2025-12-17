@@ -9,6 +9,7 @@ const User = require('../models/User');
 const { hashPassword, verifyPassword, validatePasswordStrength } = require('../utils/password');
 const { generateJWT, generateRefreshToken, verifyRefreshToken } = require('./tokenService');
 const { generateOTP, storeOTP, verifyOTP, consumeOTP, checkOTPRateLimit } = require('./otpService');
+const activityService = require('./activityService');
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 15;
@@ -19,10 +20,11 @@ const LOCKOUT_DURATION_MINUTES = 15;
  * @param {string} email - User email (will be lowercased)
  * @param {string} password - Plain text password
  * @param {boolean} rememberMe - Whether to remember user
+ * @param {object} req - Express request (for logging)
  * @returns {Promise<{token: string, refreshToken: string, user: object}>}
  * @throws {Error} - If login fails
  */
-async function login(email, password, rememberMe = false) {
+async function login(email, password, rememberMe = false, req = null) {
   const emailLower = email.toLowerCase();
 
   // Check if account is locked
@@ -55,6 +57,16 @@ async function login(email, password, rememberMe = false) {
   user.loginAttempts.lockedUntil = null;
   user.lastLogin = new Date();
   await user.save();
+
+  // Log activity (Flow 9)
+  activityService.logActivity({
+    userId: user._id,
+    action: 'USER_LOGIN',
+    resourceType: 'USER',
+    resourceId: user._id,
+    details: { method: 'password' },
+    req
+  });
 
   // Return user without passwordHash
   const userObj = user.toObject();

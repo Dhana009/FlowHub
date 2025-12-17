@@ -65,7 +65,7 @@ async function login(req, res, next) {
     }
 
     // Business logic
-    const result = await authService.login(email, password, rememberMe || false);
+    const result = await authService.login(email, password, rememberMe || false, req);
 
     // Set refresh token cookie
     setRefreshTokenCookie(res, result.refreshToken, rememberMe || false);

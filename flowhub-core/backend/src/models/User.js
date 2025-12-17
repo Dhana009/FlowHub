@@ -67,6 +67,11 @@ const userSchema = new mongoose.Schema({
   roleChangedAt: {
     type: Date,
     default: Date.now
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+    index: true
   }
 }, {
   timestamps: true, // Automatically adds createdAt and updatedAt

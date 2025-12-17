@@ -206,10 +206,10 @@ export default function ItemCreationForm() {
       // Check if response matches PRD success format
       if (result.status === 'success' && result.data) {
         // Success - show toast and redirect to items list
-        showToast('Item created successfully!', 'success');
+        showToast('Item created', 'success');
         navigate('/items', { 
           replace: true,
-          state: { message: 'Item created successfully!' }
+          state: { message: 'Item created' }
         });
       }
     } catch (error) {
