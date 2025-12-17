@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
-import { getItems } from '../services/itemService';
+import { getItems, deleteItem, activateItem } from '../services/itemService';
 import Button from '../components/common/Button';
 import ErrorMessage from '../components/common/ErrorMessage';
 import Input from '../components/common/Input';
 import ItemDetailsModal from '../components/items/ItemDetailsModal';
+import DeleteConfirmationModal from '../components/modals/DeleteConfirmationModal';
 
 /**
  * Items Page - Flow 3 Implementation
@@ -47,6 +48,10 @@ export default function ItemsPage() {
   // Modal state (Flow 4)
   const [modalItemId, setModalItemId] = useState(null);
   const [modalTriggerElement, setModalTriggerElement] = useState(null);
+
+  // Delete modal state (Flow 6)
+  const [deleteModalItem, setDeleteModalItem] = useState(null);
+  const [deleteModalTriggerElement, setDeleteModalTriggerElement] = useState(null);
 
   /**
    * Fetch items from API
@@ -277,6 +282,117 @@ export default function ItemsPage() {
     await logout();
     navigate('/login', { replace: true });
   };
+
+  // Toast notification state (Flow 6)
+  const [toasts, setToasts] = useState([]);
+  
+  /**
+   * Show toast notification (PRD Section 12)
+   */
+  const showToast = useCallback((message, type = 'info', duration = null) => {
+    const toastId = Date.now() + Math.random();
+    const newToast = { id: toastId, message, type, duration };
+    setToasts(prev => [...prev, newToast].slice(-3)); // Max 3 toasts (PRD Section 12.2)
+    
+    // Auto-dismiss based on type
+    const autoDuration = duration || (type === 'success' ? 3000 : type === 'error' ? 5000 : 3000);
+    if (autoDuration > 0) {
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== toastId));
+      }, autoDuration);
+    }
+  }, []);
+
+  /**
+   * Dismiss toast
+   */
+  const dismissToast = useCallback((toastId) => {
+    setToasts(prev => prev.filter(t => t.id !== toastId));
+  }, []);
+
+  /**
+   * Handle Delete button click (Flow 6)
+   * PRD Section 5: User Journey - Click "Delete" button on item row
+   */
+  const handleDeleteItem = useCallback((item, event) => {
+    // Store the trigger element for focus return (PRD Section 14.1: Focus Management)
+    setDeleteModalTriggerElement(event.currentTarget);
+    setDeleteModalItem(item);
+  }, []);
+
+  /**
+   * Handle delete confirmation (Flow 6)
+   * PRD Section 5: User Journey - User confirms deletion
+   */
+  const handleDeleteConfirm = useCallback(async (itemId, signal) => {
+    try {
+      // PRD Section 5: API Call - DELETE /api/items/{id}
+      await deleteItem(itemId, signal);
+
+      // PRD Section 10.1: After Successful Delete
+      // Close modal (handled by parent)
+      setDeleteModalItem(null);
+      setDeleteModalTriggerElement(null);
+
+      // PRD Section 12.1: Show success toast
+      showToast('Item deactivated successfully', 'success', 3000);
+
+      // PRD Section 10.1: Refresh item list (fetch updated list from API)
+      await fetchItems();
+
+    } catch (error) {
+      // PRD Section 11.2: Error Display Decision Matrix
+      const nonRecoverableErrors = [400, 401, 404, 409];
+      const isNonRecoverable = nonRecoverableErrors.includes(error.statusCode || error.error_code || 0);
+
+      if (isNonRecoverable) {
+        // PRD Section 11.1: Close modal, show error toast
+        setDeleteModalItem(null);
+        setDeleteModalTriggerElement(null);
+        showToast(error.message || 'Failed to deactivate item', 'error', 5000);
+      } else {
+        // PRD Section 11.1: Keep modal open, show error in modal (recoverable errors)
+        // Error will be handled by DeleteConfirmationModal component
+        throw error; // Re-throw to let modal handle it
+      }
+    }
+  }, [showToast, fetchItems]);
+
+  /**
+   * Handle delete modal cancel (Flow 6)
+   * PRD Section 7.2: Cancel Button
+   */
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteModalItem(null);
+    // Return focus to trigger element (PRD Section 14.1)
+    if (deleteModalTriggerElement && typeof deleteModalTriggerElement.focus === 'function') {
+      deleteModalTriggerElement.focus();
+    }
+    setDeleteModalTriggerElement(null);
+  }, [deleteModalTriggerElement]);
+
+  /**
+   * Handle Activate button click (Flow 6 extension)
+   * Activates (restores) a deleted item
+   */
+  const handleActivateItem = useCallback(async (item) => {
+    if (!item || !item._id) return;
+
+    try {
+      // Activate item via API
+      await activateItem(item._id);
+
+      // Show success toast
+      showToast('Item activated successfully', 'success', 3000);
+
+      // Refresh item list
+      await fetchItems();
+
+    } catch (error) {
+      // Show error toast
+      showToast(error.message || 'Failed to activate item', 'error', 5000);
+    }
+  }, [showToast, fetchItems]);
 
   /**
    * Handle View button click (Flow 4)
@@ -590,16 +706,40 @@ export default function ItemsPage() {
                             >
                               View
                             </button>
-                            <button
-                              onClick={() => navigate(`/items/${item._id}/edit`)}
-                              className="text-indigo-600 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded px-2 py-1"
-                              role="button"
-                              aria-label={`Edit ${item.name}`}
-                              data-testid={`edit-item-${item._id}`}
-                            >
-                              Edit
-                            </button>
-                            <button className="text-red-600 hover:text-red-900">Delete</button>
+                            {/* Only show Edit button for active items */}
+                            {item.is_active && (
+                              <button
+                                onClick={() => navigate(`/items/${item._id}/edit`)}
+                                className="text-indigo-600 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded px-2 py-1"
+                                role="button"
+                                aria-label={`Edit ${item.name}`}
+                                data-testid={`edit-item-${item._id}`}
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {/* Show Deactivate button for active items, Activate button for deleted items */}
+                            {item.is_active ? (
+                              <button
+                                onClick={(e) => handleDeleteItem(item, e)}
+                                className="text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded px-2 py-1"
+                                role="button"
+                                aria-label={`Deactivate ${item.name}`}
+                                data-testid={`delete-item-${item._id}`}
+                              >
+                                Deactivate
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleActivateItem(item)}
+                                className="text-green-600 hover:text-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 rounded px-2 py-1"
+                                role="button"
+                                aria-label={`Activate ${item.name}`}
+                                data-testid={`activate-item-${item._id}`}
+                              >
+                                Activate
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -712,6 +852,70 @@ export default function ItemsPage() {
         onClose={handleModalClose}
         triggerElement={modalTriggerElement}
       />
+
+      {/* Delete Confirmation Modal (Flow 6) */}
+      <DeleteConfirmationModal
+        isOpen={deleteModalItem !== null}
+        item={deleteModalItem}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        triggerElement={deleteModalTriggerElement}
+      />
+
+      {/* Toast Notifications (Flow 6) */}
+      {toasts.length > 0 && (
+        <div className="fixed top-4 right-4 z-50 space-y-2" data-testid="toast-container">
+          {toasts.map((toast, index) => (
+            <div
+              key={toast.id}
+              className="transform transition-all duration-300"
+              style={{
+                transform: `translateY(${index * 80}px)`
+              }}
+            >
+              <div
+                role="alert"
+                aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+                className={`
+                  max-w-sm w-full rounded-lg shadow-lg border-l-4 p-4 flex items-start
+                  ${toast.type === 'success' 
+                    ? 'bg-green-50 border-green-500 text-green-800' 
+                    : toast.type === 'error'
+                    ? 'bg-red-50 border-red-500 text-red-800'
+                    : 'bg-blue-50 border-blue-500 text-blue-800'
+                  }
+                `}
+                data-testid={`toast-${toast.type}`}
+              >
+                <div className="flex-shrink-0">
+                  {toast.type === 'success' ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium">{toast.message}</p>
+                </div>
+                <button
+                  onClick={() => dismissToast(toast.id)}
+                  className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none"
+                  aria-label="Dismiss notification"
+                  data-testid="toast-dismiss-button"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

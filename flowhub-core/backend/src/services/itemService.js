@@ -100,10 +100,17 @@ async function createItem(itemData, file, userId) {
  * 
  * @param {string} itemId - Item ID
  * @param {string} userId - User ID (optional, for ownership check)
+ * @param {boolean} includeInactive - Whether to include inactive/deleted items (default: false)
  * @returns {Promise<object|null>} - Item or null if not found
  */
-async function getItemById(itemId, userId = null) {
-  const query = { _id: itemId, is_active: true };
+async function getItemById(itemId, userId = null, includeInactive = false) {
+  const query = { _id: itemId };
+  
+  // Only filter by is_active if we don't want to include inactive items
+  if (!includeInactive) {
+    query.is_active = true;
+  }
+  
   if (userId) {
     query.created_by = userId;
   }
@@ -656,6 +663,55 @@ async function deleteItem(itemId, userId) {
   return deletedItem;
 }
 
+/**
+ * Activate (restore) a deleted item
+ * Sets is_active to true and clears deleted_at
+ * 
+ * @param {string} itemId - Item ID
+ * @param {string} userId - User ID activating the item
+ * @returns {Promise<object>} - Activated item
+ * @throws {Error} - If activation fails (with statusCode)
+ */
+async function activateItem(itemId, userId) {
+  // Step 1 - Check ownership and existence
+  // Return 404 if item doesn't exist or not owned (security: don't reveal ownership)
+  const existingItem = await Item.findOne({ 
+    _id: itemId,
+    created_by: userId // Ownership check
+  });
+  
+  if (!existingItem) {
+    // Return 404 (not 403) to prevent information disclosure
+    const error = new Error(`Item with ID ${itemId} not found`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Step 2 - Check if already active
+  if (existingItem.is_active && !existingItem.deleted_at) {
+    const error = new Error('Item is already active');
+    error.statusCode = 409;
+    error.errorCodeDetail = 'ITEM_ALREADY_ACTIVE';
+    throw error;
+  }
+
+  // Step 3 - Activate item
+  // Set is_active to true and clear deleted_at
+  const activatedItem = await Item.findByIdAndUpdate(
+    itemId,
+    {
+      $set: {
+        is_active: true,
+        deleted_at: null
+      }
+      // updated_at automatically updated by Mongoose timestamps
+    },
+    { new: true }
+  );
+
+  return activatedItem;
+}
+
 module.exports = {
   createItem,
   getItemById,
@@ -663,6 +719,7 @@ module.exports = {
   getItems,
   updateItem,
   deleteItem,
-  deleteFile
+  deleteFile,
+  activateItem
 };
 

@@ -291,7 +291,7 @@ export default function DeleteConfirmationModal({
           id="delete-modal-title"
           className="text-xl font-semibold text-gray-900 mb-4"
         >
-          Delete Item
+          Deactivate Item
         </h2>
 
         {/* Modal Message (PRD Section 7.1) */}
@@ -300,7 +300,7 @@ export default function DeleteConfirmationModal({
           className="text-gray-700 mb-6"
           data-testid="delete-confirm-message"
         >
-          Are you sure you want to delete <strong>'{itemDisplayName}'</strong>? This action cannot be undone.
+          Are you sure you want to deactivate <strong>'{itemDisplayName}'</strong>? This action cannot be undone.
         </p>
 
         {/* Error Message (PRD Section 11.1) */}
@@ -313,7 +313,7 @@ export default function DeleteConfirmationModal({
             <p className="text-sm text-red-800">{error.message}</p>
             {modalState === MODAL_STATES.ERROR_PERMANENT && (
               <p className="text-xs text-red-600 mt-1">
-                Unable to delete item. Please try again later.
+                Unable to deactivate item. Please try again later.
               </p>
             )}
           </div>
@@ -356,10 +356,10 @@ export default function DeleteConfirmationModal({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Deleting...
+                  Deactivating...
                 </>
               ) : (
-                'Delete'
+                'Deactivate'
               )}
             </button>
           )}

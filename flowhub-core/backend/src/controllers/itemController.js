@@ -371,7 +371,8 @@ async function getItem(req, res, next) {
     }
 
     // Get item from service (no user filtering - any authenticated user can view)
-    const item = await itemService.getItemById(itemId, null);
+    // Include inactive items so View button works for deleted items
+    const item = await itemService.getItemById(itemId, null, true);
 
     // Handle not found (PRD Section 9: 404 Not Found)
     if (!item) {
@@ -501,27 +502,58 @@ async function updateItem(req, res, next) {
  * @param {object} res - Express response
  * @param {function} next - Express next function
  */
+/**
+ * Delete an item (soft delete) (Flow 6)
+ * DELETE /api/v1/items/:id
+ * 
+ * PRD Reference: Flow 6 - Item Delete (Section 8)
+ * Error responses must match PRD exactly:
+ * - 400: Invalid ID format
+ * - 401: Unauthorized (handled by middleware)
+ * - 404: Item not found or not owned
+ * - 409: Item already deleted
+ * - 500: Internal server error
+ * 
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @param {function} next - Express next function
+ */
 async function deleteItem(req, res, next) {
+  const timestamp = new Date().toISOString();
+  const path = req.originalUrl || req.path;
+
   try {
     const itemId = req.params.id;
-    const userId = req.user?.userId;
+    // PRD Section 6.3: Ownership validation - authMiddleware sets req.user.id
+    const userId = req.user?.id;
 
-    // Validate item ID format
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized - Authentication required',
+        message: 'Authentication required. Please log in.',
+        timestamp: timestamp,
+        path: path
+      });
+    }
+
+    // PRD Section 8: Validate item ID format (400 Bad Request)
     if (!mongoose.Types.ObjectId.isValid(itemId)) {
       return res.status(400).json({
         status: 'error',
         error_code: 400,
-        error_type: 'Bad Request',
+        error_type: 'Bad Request - Invalid ID format',
         message: 'Invalid item ID format. Expected 24-character hexadecimal string.',
-        timestamp: new Date().toISOString(),
-        path: req.path
+        timestamp: timestamp,
+        path: path
       });
     }
 
-    // Delete item via service (soft delete)
+    // PRD Section 6.2 & 6.3: Delete item via service (ownership + soft delete)
     const deletedItem = await itemService.deleteItem(itemId, userId);
 
-    // Format and return deleted item
+    // PRD Section 8: Format and return deleted item (200 OK)
     const formattedItem = formatItemResponse(deletedItem);
 
     return res.status(200).json({
@@ -531,17 +563,120 @@ async function deleteItem(req, res, next) {
     });
 
   } catch (error) {
+    // PRD Section 8: Handle known errors with statusCode
     if (error.statusCode) {
-      return res.status(error.statusCode).json({
+      const errorResponse = {
         status: 'error',
         error_code: error.statusCode,
         error_type: getErrorType(error.statusCode),
         message: error.message || getDefaultErrorMessage(error.statusCode),
-        timestamp: new Date().toISOString(),
-        path: req.path
+        timestamp: timestamp,
+        path: path
+      };
+
+      // PRD Section 8: Add error_code_detail for 409 Conflict
+      if (error.statusCode === 409 && error.errorCodeDetail) {
+        errorResponse.error_code_detail = error.errorCodeDetail;
+      }
+
+      return res.status(error.statusCode).json(errorResponse);
+    }
+
+    // PRD Section 8: Handle 500 Internal Server Error
+    return res.status(500).json({
+      status: 'error',
+      error_code: 500,
+      error_type: 'Internal Server Error',
+      message: 'Something went wrong. Please try again.',
+      timestamp: timestamp,
+      path: path
+    });
+  }
+}
+
+/**
+ * Activate (restore) a deleted item (Flow 6 extension)
+ * PATCH /api/v1/items/:id/activate
+ * 
+ * Restores a soft-deleted item by setting is_active to true and clearing deleted_at
+ * 
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @param {function} next - Express next function
+ */
+async function activateItem(req, res, next) {
+  const timestamp = new Date().toISOString();
+  const path = req.originalUrl || req.path;
+
+  try {
+    const itemId = req.params.id;
+    // Ownership validation - authMiddleware sets req.user.id
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized - Authentication required',
+        message: 'Authentication required. Please log in.',
+        timestamp: timestamp,
+        path: path
       });
     }
-    next(error);
+
+    // Validate item ID format
+    if (!mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request - Invalid ID format',
+        message: 'Invalid item ID format. Expected 24-character hexadecimal string.',
+        timestamp: timestamp,
+        path: path
+      });
+    }
+
+    // Activate item via service
+    const activatedItem = await itemService.activateItem(itemId, userId);
+
+    // Format and return activated item
+    const formattedItem = formatItemResponse(activatedItem);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Item activated successfully',
+      data: formattedItem
+    });
+
+  } catch (error) {
+    // Handle known errors with statusCode
+    if (error.statusCode) {
+      const errorResponse = {
+        status: 'error',
+        error_code: error.statusCode,
+        error_type: getErrorType(error.statusCode),
+        message: error.message || getDefaultErrorMessage(error.statusCode),
+        timestamp: timestamp,
+        path: path
+      };
+
+      // Add error_code_detail for 409 Conflict
+      if (error.statusCode === 409 && error.errorCodeDetail) {
+        errorResponse.error_code_detail = error.errorCodeDetail;
+      }
+
+      return res.status(error.statusCode).json(errorResponse);
+    }
+
+    // Handle 500 Internal Server Error
+    return res.status(500).json({
+      status: 'error',
+      error_code: 500,
+      error_type: 'Internal Server Error',
+      message: 'Something went wrong. Please try again.',
+      timestamp: timestamp,
+      path: path
+    });
   }
 }
 
@@ -550,6 +685,7 @@ module.exports = {
   getItems,
   getItem,
   updateItem,
-  deleteItem
+  deleteItem,
+  activateItem
 };
 

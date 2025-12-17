@@ -95,6 +95,142 @@ export async function createItem(itemData, file = null) {
 }
 
 /**
+ * Delete an item (soft delete) (Flow 6)
+ * DELETE /api/v1/items/:id
+ * 
+ * PRD Reference: Flow 6 - Item Delete (Section 8)
+ * 
+ * @param {string} itemId - Item ID to delete
+ * @param {AbortSignal} signal - Optional abort signal for request cancellation
+ * @returns {Promise<object>} - Deleted item data
+ * @throws {Error} - If deletion fails (with statusCode and PRD error format)
+ */
+export async function deleteItem(itemId, signal = null) {
+  // PRD Section 17.2: API Request Timeout (10 seconds)
+  const TIMEOUT_MS = 10000;
+
+  try {
+    const response = await api.delete(`/items/${itemId}`, {
+      signal: signal,
+      timeout: TIMEOUT_MS
+    });
+
+    // PRD Section 8: Success Response (200 OK)
+    return response.data.data; // Return item data from response
+  } catch (error) {
+    // Handle abort
+    if (error.name === 'AbortError' || error.code === 'ERR_CANCELED' || error.isCancelled) {
+      const cancelError = new Error('Request cancelled');
+      cancelError.isCancelled = true;
+      throw cancelError;
+    }
+
+    // Handle timeout
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      const timeoutError = new Error('Request timed out. Please try again.');
+      timeoutError.statusCode = 408;
+      timeoutError.error_code = 408;
+      timeoutError.error_type = 'Request Timeout';
+      throw timeoutError;
+    }
+
+    // PRD Section 8: Handle error responses - PRD format
+    if (error.response) {
+      const errorData = error.response.data;
+      
+      // PRD error format: { status, error_code, error_type, message, timestamp, path, error_code_detail }
+      const customError = new Error(errorData?.message || 'Failed to delete item');
+      customError.statusCode = error.response.status;
+      customError.error_code = errorData?.error_code || error.response.status;
+      customError.error_type = errorData?.error_type || 'Error';
+      customError.error_code_detail = errorData?.error_code_detail;
+      customError.details = errorData?.details;
+      customError.data = errorData;
+      throw customError;
+    }
+
+    // Handle network errors (PRD Section 11.1: Network Error)
+    if (!error.statusCode) {
+      const networkError = new Error('Connection failed. Please check your internet and try again.');
+      networkError.statusCode = 0;
+      networkError.error_code = 0;
+      networkError.error_type = 'Network Error';
+      throw networkError;
+    }
+    
+    // Re-throw if already has statusCode
+    throw error;
+  }
+}
+
+/**
+ * Activate (restore) a deleted item (Flow 6 extension)
+ * PATCH /api/v1/items/:id/activate
+ * 
+ * @param {string} itemId - Item ID to activate
+ * @param {AbortSignal} signal - Optional abort signal for request cancellation
+ * @returns {Promise<object>} - Activated item data
+ * @throws {Error} - If activation fails (with statusCode and PRD error format)
+ */
+export async function activateItem(itemId, signal = null) {
+  // API Request Timeout (10 seconds)
+  const TIMEOUT_MS = 10000;
+
+  try {
+    const response = await api.patch(`/items/${itemId}/activate`, {}, {
+      signal: signal,
+      timeout: TIMEOUT_MS
+    });
+
+    // Success Response (200 OK)
+    return response.data.data; // Return item data from response
+  } catch (error) {
+    // Handle abort
+    if (error.name === 'AbortError' || error.code === 'ERR_CANCELED' || error.isCancelled) {
+      const cancelError = new Error('Request cancelled');
+      cancelError.isCancelled = true;
+      throw cancelError;
+    }
+
+    // Handle timeout
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      const timeoutError = new Error('Request timed out. Please try again.');
+      timeoutError.statusCode = 408;
+      timeoutError.error_code = 408;
+      timeoutError.error_type = 'Request Timeout';
+      throw timeoutError;
+    }
+
+    // Handle error responses - PRD format
+    if (error.response) {
+      const errorData = error.response.data;
+      
+      // PRD error format: { status, error_code, error_type, message, timestamp, path, error_code_detail }
+      const customError = new Error(errorData?.message || 'Failed to activate item');
+      customError.statusCode = error.response.status;
+      customError.error_code = errorData?.error_code || error.response.status;
+      customError.error_type = errorData?.error_type || 'Error';
+      customError.error_code_detail = errorData?.error_code_detail;
+      customError.details = errorData?.details;
+      customError.data = errorData;
+      throw customError;
+    }
+
+    // Handle network errors
+    if (!error.statusCode) {
+      const networkError = new Error('Connection failed. Please check your internet and try again.');
+      networkError.statusCode = 0;
+      networkError.error_code = 0;
+      networkError.error_type = 'Network Error';
+      throw networkError;
+    }
+    
+    // Re-throw if already has statusCode
+    throw error;
+  }
+}
+
+/**
  * Get all items with search, filter, sort, and pagination
  * Implements Flow 3 requirements
  * 

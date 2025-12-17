@@ -31,6 +31,14 @@ router.post(
 router.get('/', verifyToken, itemController.getItems);
 
 /**
+ * PATCH /api/v1/items/:id/activate
+ * Activate (restore) a deleted item (Flow 6 extension)
+ * Requires authentication
+ * NOTE: Must be defined BEFORE /:id route to avoid route matching conflicts
+ */
+router.patch('/:id/activate', verifyToken, itemController.activateItem);
+
+/**
  * GET /api/v1/items/:id
  * Get single item by ID (Flow 4)
  * Requires authentication
