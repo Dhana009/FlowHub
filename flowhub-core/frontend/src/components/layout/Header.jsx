@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import Button from '../common/Button';
 
@@ -14,6 +14,7 @@ import Button from '../common/Button';
 export default function Header({ onMenuClick }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -23,18 +24,18 @@ export default function Header({ onMenuClick }) {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 shadow-sm z-50"
+      className="fixed top-0 left-0 right-0 h-16 lg:left-60 bg-white/80 backdrop-blur-md border-b border-slate-200/60 shadow-sm z-50"
       role="banner"
       aria-label="Main navigation"
     >
-      <div className="h-full px-4 sm:px-6 lg:px-8">
+      <div className="h-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
         <div className="flex items-center justify-between h-full">
           {/* Left: Logo and Menu Button */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-4 sm:gap-6">
             {/* Mobile Menu Button */}
             <button
               onClick={onMenuClick}
-              className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="lg:hidden p-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200"
               aria-label="Toggle sidebar"
               aria-expanded="false"
               data-testid="mobile-menu-button"
@@ -54,54 +55,60 @@ export default function Header({ onMenuClick }) {
               </svg>
             </button>
 
-            {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-md">
-                <span className="text-white text-sm font-bold">F</span>
-              </div>
-              <h1 className="text-xl font-semibold text-gray-900 hidden sm:block">
-                FlowHub
-              </h1>
-            </div>
+            {/* Breadcrumbs */}
+            <nav className="flex items-center gap-2 text-sm font-medium" aria-label="Breadcrumb">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="text-slate-500 hover:text-slate-700 transition-colors leading-normal"
+              >
+                Home
+              </button>
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              <span className="text-slate-900 font-semibold leading-normal text-base">
+                {location.pathname === '/dashboard' ? 'Dashboard' : 
+                 location.pathname.startsWith('/items') ? 'Items' : 'FlowHub'}
+              </span>
+            </nav>
           </div>
 
-          {/* Right: User Menu and Actions */}
-          <div className="flex items-center space-x-4">
-            {/* Create Item Button (Desktop) */}
-            <div className="hidden md:block">
-              <Button
-                onClick={() => navigate('/items/create')}
-                variant="primary"
-                dataTestid="header-create-item-button"
-                className="text-sm px-4 py-2"
-              >
-                + Create Item
-              </Button>
-            </div>
+          {/* Right: Notifications and User Menu */}
+          <div className="flex items-center gap-3">
+            {/* Notifications */}
+            <button
+              className="relative p-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200"
+              aria-label="Notifications"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
 
             {/* User Menu */}
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200"
                 aria-label="User menu"
                 aria-expanded={userMenuOpen}
                 data-testid="user-menu-button"
               >
                 {/* Avatar */}
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center text-white text-sm font-semibold shadow-sm">
                   {user?.firstName?.[0]?.toUpperCase() || 'U'}
                 </div>
                 {/* User Info (Desktop) */}
                 <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-semibold text-slate-900 leading-normal">
                     {user?.firstName} {user?.lastName}
                   </p>
-                  <p className="text-xs text-gray-500">{user?.email}</p>
+                  <p className="text-xs text-slate-500 leading-normal mt-0.5">{user?.email}</p>
                 </div>
                 {/* Dropdown Icon */}
                 <svg
-                  className={`w-4 h-4 text-gray-500 transition-transform ${
+                  className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${
                     userMenuOpen ? 'rotate-180' : ''
                   }`}
                   fill="none"
@@ -126,23 +133,23 @@ export default function Header({ onMenuClick }) {
                     aria-hidden="true"
                   />
                   <div
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20"
+                    className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200/60 py-2 z-20"
                     role="menu"
                     aria-orientation="vertical"
                     data-testid="user-menu-dropdown"
                   >
-                    <div className="px-4 py-2 border-b border-gray-100 md:hidden">
-                      <p className="text-sm font-medium text-gray-900">
+                    <div className="px-4 py-3 border-b border-slate-100 md:hidden">
+                      <p className="text-sm font-semibold text-slate-900">
                         {user?.firstName} {user?.lastName}
                       </p>
-                      <p className="text-xs text-gray-500">{user?.email}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{user?.email}</p>
                     </div>
                     <button
                       onClick={() => {
                         setUserMenuOpen(false);
                         navigate('/dashboard');
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100"
+                      className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50 rounded-lg mx-1 transition-colors duration-150"
                       role="menuitem"
                       data-testid="menu-dashboard"
                     >
@@ -153,16 +160,16 @@ export default function Header({ onMenuClick }) {
                         setUserMenuOpen(false);
                         navigate('/items');
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100"
+                      className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50 rounded-lg mx-1 transition-colors duration-150"
                       role="menuitem"
                       data-testid="menu-items"
                     >
                       All Items
                     </button>
-                    <div className="border-t border-gray-100 my-1" />
+                    <div className="border-t border-slate-100 my-1" />
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 focus:outline-none focus:bg-red-50"
+                      className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 focus:outline-none focus:bg-red-50 rounded-lg mx-1 transition-colors duration-150"
                       role="menuitem"
                       data-testid="menu-logout"
                     >

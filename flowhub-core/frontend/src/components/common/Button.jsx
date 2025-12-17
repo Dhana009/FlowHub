@@ -27,18 +27,17 @@ export default function Button({
   const isDisabled = disabled || loading;
 
   const baseClasses = `
-    px-6 py-3 rounded-lg font-medium text-base
+    px-5 py-2.5 rounded-xl font-semibold text-sm
     focus:outline-none focus:ring-2 focus:ring-offset-2
     disabled:opacity-50 disabled:cursor-not-allowed
     transition-all duration-200 ease-in-out
-    transform hover:-translate-y-0.5 active:translate-y-0
-    shadow-sm hover:shadow-md
+    leading-normal tracking-normal
   `;
 
   const variantClasses = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 active:bg-blue-800',
-    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-500 active:bg-gray-300 border border-gray-300',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 active:bg-red-800'
+    primary: 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white hover:from-indigo-700 hover:to-indigo-800 focus:ring-indigo-500 active:from-indigo-800 active:to-indigo-900 shadow-md hover:shadow-lg',
+    secondary: 'bg-white text-slate-700 hover:bg-slate-50 focus:ring-indigo-500 active:bg-slate-100 border border-slate-300 shadow-sm hover:shadow-md',
+    danger: 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 focus:ring-red-500 active:from-red-800 active:to-red-900 shadow-md hover:shadow-lg'
   };
 
   return (

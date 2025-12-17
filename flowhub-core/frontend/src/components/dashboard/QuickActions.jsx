@@ -37,24 +37,26 @@ export default function QuickActions({ actions = [] }) {
   const actionsToShow = actions.length > 0 ? actions : defaultActions;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
       {actionsToShow.map((action, index) => (
         <button
           key={index}
           onClick={action.onClick}
           className={`
-            flex flex-col items-center justify-center space-y-2 p-6 rounded-lg border-2 border-dashed
-            transition-all duration-200
+            group flex flex-col items-center justify-center space-y-2 p-6 rounded-xl border-2 border-dashed
+            transition-all duration-200 hover:scale-105 active:scale-95
             ${
               action.variant === 'primary'
-                ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 text-blue-700'
-                : 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400 text-gray-700'
+                ? 'border-indigo-300 bg-gradient-to-br from-indigo-50 to-indigo-100/50 hover:from-indigo-100 hover:to-indigo-200/50 hover:border-indigo-400 text-indigo-700 hover:shadow-md'
+                : 'border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-slate-400 text-slate-700 hover:shadow-sm'
             }
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
           `}
           data-testid={`quick-action-${action.label.toLowerCase().replace(/\s+/g, '-')}`}
         >
-          <div className={action.variant === 'primary' ? 'text-blue-600' : 'text-gray-600'}>
+          <div className={`transition-transform duration-200 group-hover:scale-110 ${
+            action.variant === 'primary' ? 'text-indigo-600' : 'text-slate-600'
+          }`}>
             {action.icon}
           </div>
           <span className="text-sm font-medium">{action.label}</span>

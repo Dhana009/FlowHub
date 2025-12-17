@@ -56,29 +56,43 @@ export default function StatsCard({ title, value, change, icon, loading = false 
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm font-medium text-gray-600">{title}</p>
+    <div className="group bg-white rounded-xl shadow-sm border border-slate-200/60 p-4 sm:p-6 hover:shadow-md hover:shadow-slate-200/50 hover:-translate-y-0.5 transition-all duration-200 ease-out">
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <dl>
+            <dt className="text-sm font-medium text-slate-600 truncate mb-1 leading-normal">
+              {title}
+            </dt>
+            <dd className="flex items-baseline gap-2 mt-2">
+              <div className="text-2xl sm:text-3xl font-bold text-slate-900 leading-tight tracking-tight">
+                {value}
+              </div>
+              {change && (
+                <div className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${
+                  change.trend === 'up' 
+                    ? 'text-emerald-700 bg-emerald-50' 
+                    : change.trend === 'down'
+                    ? 'text-red-700 bg-red-50'
+                    : 'text-slate-700 bg-slate-50'
+                }`}>
+                  {getTrendIcon(change.trend)}
+                  <span>{Math.abs(change.value)}%</span>
+                </div>
+              )}
+            </dd>
+          </dl>
+          {change && (
+            <p className="text-xs text-slate-500 mt-2">vs last period</p>
+          )}
+        </div>
         {icon && (
-          <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600">
-            {icon}
+          <div className="flex-shrink-0 ml-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-200">
+              {icon}
+            </div>
           </div>
         )}
       </div>
-      <div className="flex items-baseline space-x-2">
-        <p className="text-3xl font-bold text-gray-900">{value}</p>
-        {change && (
-          <div className={`flex items-center space-x-1 ${getTrendColor(change.trend)}`}>
-            {getTrendIcon(change.trend)}
-            <span className="text-sm font-medium">
-              {Math.abs(change.value)}%
-            </span>
-          </div>
-        )}
-      </div>
-      {change && (
-        <p className="text-xs text-gray-500 mt-1">vs last period</p>
-      )}
     </div>
   );
 }

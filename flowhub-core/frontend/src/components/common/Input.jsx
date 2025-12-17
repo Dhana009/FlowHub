@@ -43,7 +43,7 @@ export default function Input({
       {label && (
         <label 
           htmlFor={inputId}
-          className="block text-sm font-medium text-gray-700 mb-2"
+          className="block text-sm font-medium text-slate-700 mb-1.5 leading-normal"
         >
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
@@ -65,14 +65,14 @@ export default function Input({
           aria-describedby={error ? errorId : undefined}
           data-testid={dataTestid}
           className={`
-            w-full px-4 py-3 text-base border rounded-lg
+            w-full px-4 py-2.5 text-sm border rounded-lg
             transition-all duration-200 ease-in-out
             focus:outline-none focus:ring-2 focus:ring-offset-0
             ${error 
-              ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50 text-gray-900' 
-              : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500 bg-white hover:border-gray-400 text-gray-900'
+              ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50 text-slate-900' 
+              : 'border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 bg-white hover:border-slate-400 text-slate-900'
             }
-            placeholder:text-gray-400
+            placeholder:text-slate-400
           `}
           {...rest}
         />
@@ -81,7 +81,7 @@ export default function Input({
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
             <svg 

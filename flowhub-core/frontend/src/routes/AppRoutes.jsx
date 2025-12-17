@@ -110,7 +110,7 @@ export default function AppRoutes() {
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <AppLayout title="Dashboard">
+            <AppLayout>
               <DashboardPage />
             </AppLayout>
           </ProtectedRoute>
@@ -120,7 +120,7 @@ export default function AppRoutes() {
         path="/items"
         element={
           <ProtectedRoute>
-            <AppLayout title="Items">
+            <AppLayout>
               <ItemsPage />
             </AppLayout>
           </ProtectedRoute>
