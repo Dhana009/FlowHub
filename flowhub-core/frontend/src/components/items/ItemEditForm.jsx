@@ -376,6 +376,7 @@ export default function ItemEditForm({ item }) {
   return (
     <form
       onSubmit={handleSubmit}
+      noValidate
       role="form"
       aria-label="Edit item form"
       encType="multipart/form-data"
@@ -408,10 +409,11 @@ export default function ItemEditForm({ item }) {
 
       {/* Description */}
       <div className="mb-5">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="item-description" className="block text-sm font-medium text-gray-700 mb-2">
           Description <span className="text-red-500">*</span>
         </label>
         <textarea
+          id="item-description"
           value={values.description}
           onChange={(e) => handleChange('description', e.target.value)}
           onBlur={() => handleBlur('description')}
@@ -419,7 +421,7 @@ export default function ItemEditForm({ item }) {
           rows={4}
           required
           role="textbox"
-          aria-label="Description"
+          aria-label="Item Description"
           aria-invalid={!!(touched.description && errors.description)}
           aria-describedby={touched.description && errors.description ? 'description-error' : undefined}
           data-testid="item-description"
@@ -449,16 +451,16 @@ export default function ItemEditForm({ item }) {
 
       {/* Item Type */}
       <div className="mb-5">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="item-type" className="block text-sm font-medium text-gray-700 mb-2">
           Item Type <span className="text-red-500">*</span>
         </label>
         <select
+          id="item-type"
           value={values.item_type}
           onChange={(e) => handleChange('item_type', e.target.value)}
           onBlur={() => handleBlur('item_type')}
           required
-          role="combobox"
-          aria-label="Item Type"
+          aria-label="Select Item Type"
           aria-invalid={!!(touched.item_type && errors.item_type)}
           data-testid="item-type"
           className={`
@@ -575,9 +577,9 @@ export default function ItemEditForm({ item }) {
       </div>
 
       {/* Version Display (read-only) */}
-      <div className="mb-5 p-3 bg-gray-50 rounded-lg">
+      <div className="mb-5 p-3 bg-gray-50 rounded-lg" role="status" aria-label="Version Control Info">
         <p className="text-sm text-gray-600">
-          <strong>Current Version:</strong> {currentVersion}
+          <strong>Current Version:</strong> <span aria-label={`Version ${currentVersion}`}>{currentVersion}</span>
         </p>
         <p className="text-xs text-gray-500 mt-1">
           Version is used to prevent conflicts when multiple users edit the same item.
@@ -591,6 +593,7 @@ export default function ItemEditForm({ item }) {
           loading={isSubmitting}
           disabled={isSubmitting}
           dataTestid="edit-item-submit"
+          ariaLabel="Update Item Submit"
           className="flex-1"
         >
           Update Item
@@ -600,6 +603,7 @@ export default function ItemEditForm({ item }) {
           onClick={handleCancel}
           disabled={isSubmitting}
           dataTestid="edit-item-cancel"
+          ariaLabel="Cancel Item Edit"
           variant="secondary"
         >
           Cancel

@@ -44,8 +44,8 @@ export default function ConditionalFields({
           required
         />
 
-        <div className="space-y-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="space-y-4" role="group" aria-labelledby="dimensions-label">
+          <label id="dimensions-label" className="block text-sm font-medium text-gray-700 mb-2">
             Dimensions (cm)
           </label>
           
@@ -61,6 +61,7 @@ export default function ConditionalFields({
               onBlur={() => onBlur('dimensions.length')}
               error={touched['dimensions.length'] ? errors['dimensions.length'] : ''}
               dataTestid="item-dimension-length"
+              ariaLabel="Item Length in cm"
               placeholder="0.00"
               step="0.01"
               min="0.01"
@@ -78,6 +79,7 @@ export default function ConditionalFields({
               onBlur={() => onBlur('dimensions.width')}
               error={touched['dimensions.width'] ? errors['dimensions.width'] : ''}
               dataTestid="item-dimension-width"
+              ariaLabel="Item Width in cm"
               placeholder="0.00"
               step="0.01"
               min="0.01"
@@ -95,6 +97,7 @@ export default function ConditionalFields({
               onBlur={() => onBlur('dimensions.height')}
               error={touched['dimensions.height'] ? errors['dimensions.height'] : ''}
               dataTestid="item-dimension-height"
+              ariaLabel="Item Height in cm"
               placeholder="0.00"
               step="0.01"
               min="0.01"

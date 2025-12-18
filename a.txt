@@ -1,2 +1,0 @@
-Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force; Write-Host " Stopped all Node.js processes" -ForegroundColor Green; Start-Sleep -Seconds 2
- Stopped all Node.js processes

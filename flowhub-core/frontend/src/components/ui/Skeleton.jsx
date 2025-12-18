@@ -24,6 +24,7 @@ export default function Skeleton({
 
   return (
     <div
+      role="progressbar"
       className={`
         ${width} ${height}
         ${variantClasses[variant]}
@@ -31,10 +32,11 @@ export default function Skeleton({
         ${className}
       `}
       aria-busy="true"
-      aria-label="Loading"
+      aria-label="Loading content"
       {...rest}
     />
   );
 }
+
 
 

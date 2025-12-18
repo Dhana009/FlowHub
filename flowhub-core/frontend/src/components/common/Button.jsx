@@ -9,6 +9,7 @@
  * @param {function} props.onClick - Click handler
  * @param {boolean} props.loading - Loading state
  * @param {boolean} props.disabled - Disabled state
+ * @param {string} props.ariaLabel - Accessible name for screen readers and automation
  * @param {string} props.dataTestid - Test identifier
  * @param {string} props.variant - Button variant (primary, secondary, danger)
  * @param {string} props.className - Additional CSS classes
@@ -19,6 +20,7 @@ export default function Button({
   onClick,
   loading = false,
   disabled = false,
+  ariaLabel,
   dataTestid,
   variant = 'primary',
   className = '',
@@ -47,7 +49,7 @@ export default function Button({
       onClick={onClick}
       disabled={isDisabled}
       role="button"
-      aria-label={typeof children === 'string' ? children : 'Button'}
+      aria-label={ariaLabel || (typeof children === 'string' ? children : undefined)}
       aria-busy={loading}
       data-testid={dataTestid}
       className={`${baseClasses} ${variantClasses[variant]} ${className}`}

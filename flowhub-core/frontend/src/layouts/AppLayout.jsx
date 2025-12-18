@@ -27,7 +27,11 @@ export default function AppLayout({ children, title }) {
       {/* Main Layout Container - Flex row with proper overflow */}
       <div className="flex flex-1 pt-16 lg:ml-60 overflow-hidden">
         {/* Main Content Area - Scrollable */}
-        <main className="flex-1 overflow-y-auto focus:outline-none">
+        <main 
+          className="flex-1 overflow-y-auto focus:outline-none"
+          tabIndex="0"
+          aria-label="Main content"
+        >
           <PageContainer title={title}>
             {children}
           </PageContainer>

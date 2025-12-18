@@ -216,6 +216,7 @@ export default function SignUpForm() {
       role="form"
       aria-label="Sign up form"
       className="w-full"
+      noValidate
     >
       {step === 'form' && (
         <>
@@ -344,11 +345,13 @@ export default function SignUpForm() {
           />
 
           <div className="mb-5">
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Account Role (Testing Only)</label>
+            <label htmlFor="signup-role-selector" className="block text-sm font-medium text-slate-700 mb-1.5">Account Role (Testing Only)</label>
             <select
+              id="signup-role-selector"
               value={values.role}
               onChange={(e) => handleChange('role', e.target.value)}
               className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white"
+              aria-label="Select account role for testing"
               data-testid="signup-role-selector"
             >
               <option value="VIEWER">VIEWER (Read Only)</option>
@@ -372,8 +375,8 @@ export default function SignUpForm() {
 
       {step === 'otp' && (
         <>
-          <div className="mb-5 p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-sm text-indigo-800 flex items-start">
-            <svg className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <div className="mb-5 p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-sm text-indigo-800 flex items-start" role="status" aria-live="polite">
+            <svg className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
             <div>

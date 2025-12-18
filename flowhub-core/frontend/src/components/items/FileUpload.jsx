@@ -130,6 +130,7 @@ export default function FileUpload({
             type="button"
             onClick={handleRemove}
             dataTestid="remove-file"
+            ariaLabel={`Remove selected file ${selectedFile.name}`}
             className="ml-4"
           >
             Remove

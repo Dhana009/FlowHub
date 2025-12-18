@@ -556,10 +556,9 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header (PRD Section 6.1) */}
-        <        header
-        role="banner"
-        className="flex items-center justify-between p-6 border-b border-slate-200"
-      >
+        <div
+          className="flex items-center justify-between p-6 border-b border-slate-200"
+        >
           <h2
             id="modal-title"
             className="text-2xl font-semibold text-slate-900"
@@ -593,11 +592,10 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
               />
             </svg>
           </button>
-        </header>
+        </div>
 
         {/* Modal Content (PRD Section 6.1) */}
-        <main
-          role="main"
+        <div
           className="flex-1 overflow-y-auto p-6"
           aria-busy={modalState === MODAL_STATES.LOADING || modalState === MODAL_STATES.RETRYING}
           aria-live={modalState === MODAL_STATES.LOADING ? 'polite' : modalState === MODAL_STATES.ERROR ? 'assertive' : 'off'}
@@ -606,6 +604,8 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
           {(modalState === MODAL_STATES.OPENING || modalState === MODAL_STATES.LOADING || modalState === MODAL_STATES.RETRYING) && (
             <div
               className="flex flex-col items-center justify-center py-12"
+              role="status"
+              aria-label={modalState === MODAL_STATES.RETRYING ? 'Retrying item load' : 'Loading item details'}
               data-testid="loading-state"
             >
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4" />
@@ -634,6 +634,7 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
                     onClick={handleRetry}
                     disabled={retryCount >= MAX_RETRIES}
                     dataTestid="retry-button"
+                    ariaLabel={`Retry loading item details (Attempt ${retryCount + 1} of ${MAX_RETRIES})`}
                   >
                     Retry
                   </Button>
@@ -658,6 +659,7 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
               <div>
                 <h3
                   className="text-2xl font-bold text-slate-900 mb-3"
+                  aria-label="Item name"
                   data-testid={`item-name-${sanitizedId}`}
                 >
                   {item.name || 'Unnamed Item'}
@@ -783,7 +785,8 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
                       {!iframeLoaded && !iframeError && (
                         <div
                           className="flex items-center justify-center py-8 bg-gray-50 rounded-lg"
-                          aria-busy="true"
+                          role="status"
+                          aria-label="Loading embedded content"
                           data-testid="iframe-loading-state"
                         >
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3" />
@@ -830,7 +833,7 @@ export default function ItemDetailsModal({ isOpen, itemId, onClose, triggerEleme
               )}
             </article>
           )}
-        </main>
+        </div>
       </div>
     </div>
   );

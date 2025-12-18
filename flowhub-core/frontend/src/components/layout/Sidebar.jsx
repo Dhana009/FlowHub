@@ -68,16 +68,15 @@ export default function Sidebar({ isOpen, onClose }) {
   return (
     <>
       {/* Desktop Sidebar - Dark theme with logo and Create Item button */}
-      <aside
+      <aside 
         className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-[60] lg:flex"
-        role="navigation"
-        aria-label="Main navigation"
+        aria-label="Primary navigation sidebar"
       >
         <div className="flex flex-col w-60 h-full bg-gradient-to-b from-slate-800 to-slate-900 border-r border-slate-700/50">
           {/* Logo Section - Height matched to Header (64px) */}
           <div className="px-4 h-16 flex items-center border-b border-slate-700/50">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg" aria-hidden="true">
                 <span className="text-white text-base font-bold">F</span>
               </div>
               <h1 className="text-xl font-bold text-white tracking-tight">FlowHub</h1>
@@ -98,9 +97,10 @@ export default function Sidebar({ isOpen, onClose }) {
                   transition-all duration-200
                 "
                 title="Create Item"
+                aria-label="Create new item"
                 data-testid="sidebar-create-item-button"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 <span>Create Item</span>
@@ -109,7 +109,11 @@ export default function Sidebar({ isOpen, onClose }) {
           )}
 
           {/* Navigation Items */}
-          <nav className="flex-1 px-3 py-4 overflow-y-auto">
+          <nav 
+            className="flex-1 px-3 py-4 overflow-y-auto"
+            role="navigation"
+            aria-label="Primary sidebar navigation"
+          >
             <ul className="space-y-1" role="list">
               {navigation.map((item) => {
                 // RBAC Check for menu items
@@ -118,7 +122,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 }
                 const active = isActive(item.href);
                 return (
-                  <li key={item.name}>
+                  <li key={item.name} role="listitem">
                     <NavLink
                       to={item.href}
                       className={`
@@ -132,9 +136,10 @@ export default function Sidebar({ isOpen, onClose }) {
                         focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-800
                       `}
                       aria-current={active ? 'page' : undefined}
+                      aria-label={`Navigate to ${item.name}`}
                       data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                     >
-                      <span className={`flex-shrink-0 ${active ? 'text-white' : 'text-slate-400'}`}>
+                      <span className={`flex-shrink-0 ${active ? 'text-white' : 'text-slate-400'}`} aria-hidden="true">
                         {item.icon}
                       </span>
                       <span className="truncate font-medium">{item.name}</span>
@@ -159,14 +164,13 @@ export default function Sidebar({ isOpen, onClose }) {
           {/* Sidebar Panel */}
           <aside
             className="fixed inset-y-0 left-0 flex flex-col w-72 bg-gradient-to-b from-slate-800 to-slate-900 z-[70] transform transition-transform duration-300 ease-in-out lg:hidden"
-            role="navigation"
-            aria-label="Main navigation"
             aria-hidden={!isOpen}
+            aria-label="Mobile navigation sidebar"
           >
             {/* Mobile Logo Section */}
             <div className="px-5 py-6 border-b border-slate-700/50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg" aria-hidden="true">
                   <span className="text-white text-base font-bold">F</span>
                 </div>
                 <h1 className="text-xl font-bold text-white tracking-tight">FlowHub</h1>
@@ -189,9 +193,10 @@ export default function Sidebar({ isOpen, onClose }) {
                     focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-800
                     transition-all duration-200
                   "
+                  aria-label="Create new item"
                   data-testid="mobile-sidebar-create-item-button"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   <span>Create Item</span>
@@ -201,7 +206,11 @@ export default function Sidebar({ isOpen, onClose }) {
 
             {/* Mobile Navigation */}
             <div className="flex-1 pt-4 pb-4 overflow-y-auto">
-              <nav className="px-3 py-4">
+              <nav 
+                className="px-3 py-4"
+                role="navigation"
+                aria-label="Mobile sidebar navigation"
+              >
                 <ul className="space-y-1" role="list">
                   {navigation.map((item) => {
                     // RBAC Check for menu items
@@ -210,7 +219,7 @@ export default function Sidebar({ isOpen, onClose }) {
                     }
                     const active = isActive(item.href);
                     return (
-                      <li key={item.name}>
+                      <li key={item.name} role="listitem">
                         <NavLink
                           to={item.href}
                           onClick={onClose}
@@ -224,9 +233,10 @@ export default function Sidebar({ isOpen, onClose }) {
                             focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-800
                           `}
                           aria-current={active ? 'page' : undefined}
+                          aria-label={`Navigate to ${item.name}`}
                           data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                         >
-                          <span className={`flex-shrink-0 w-5 h-5 ${active ? 'text-white' : 'text-slate-400'}`}>
+                          <span className={`flex-shrink-0 w-5 h-5 ${active ? 'text-white' : 'text-slate-400'}`} aria-hidden="true">
                             {item.icon}
                           </span>
                           <span className="truncate">{item.name}</span>

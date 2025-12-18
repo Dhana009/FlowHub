@@ -28,6 +28,12 @@ export default function ItemsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Flow 3: Deterministic Search State for Testing
+  // States: 'idle' | 'debouncing' | 'loading' | 'ready'
+  const [searchState, setSearchState] = useState('idle');
+  const [lastFinishedSearch, setLastFinishedSearch] = useState('');
+  const [searchTransitionId, setSearchTransitionId] = useState(0);
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -130,7 +136,10 @@ export default function ItemsPage() {
    */
   const fetchItems = useCallback(async (silent = false) => {
     try {
-      if (!silent) setLoading(true);
+      if (!silent) {
+        setLoading(true);
+        if (search) setSearchState('loading');
+      }
       setError(null);
 
       const params = {
@@ -147,6 +156,7 @@ export default function ItemsPage() {
       const response = await getItems(params);
       
       setItems(response.items || []);
+      setLastFinishedSearch(debouncedSearch || '');
       setPagination(response.pagination || pagination);
 
       // Extract unique categories from items
@@ -163,6 +173,7 @@ export default function ItemsPage() {
       console.error('Error fetching items:', err);
     } finally {
       if (!silent) setLoading(false);
+      setSearchState('ready');
     }
   }, [debouncedSearch, status, category, sortBy, sortOrder, pagination.page, pagination.limit]);
 
@@ -192,6 +203,8 @@ export default function ItemsPage() {
   const handleSearchChange = useCallback((value) => {
     setSearch(value);
     setIsUserActive(true);
+    setSearchState(value ? 'debouncing' : 'idle');
+    setSearchTransitionId(prev => prev + 1);
     
     // Clear existing timeout
     if (searchTimeoutRef.current) {
@@ -325,12 +338,12 @@ export default function ItemsPage() {
     return text.substring(0, maxLength) + '...';
   };
 
-  // Initial fetch and URL sync
+  // Main effect to fetch items when dependencies change
   useEffect(() => {
     fetchItems();
-  }, [pagination.page, pagination.limit, status, category, sortBy, sortOrder]);
+  }, [fetchItems]);
 
-  // Update URL when filters change
+  // Update URL when parameters change
   useEffect(() => {
     updateURL();
   }, [updateURL]);
@@ -358,16 +371,6 @@ export default function ItemsPage() {
       }
     };
   }, [isUserActive, loading, fetchItems]);
-
-  // Sync search with debounce (300ms as per PRD)
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setPagination(prev => ({ ...prev, page: 1 }));
-      fetchItems();
-    }, 300); // 300ms debounce as per PRD
-
-    return () => clearTimeout(timeout);
-  }, [search]);
 
   /**
    * Handle Delete button click (Flow 6)
@@ -516,8 +519,10 @@ export default function ItemsPage() {
             <div className="flex flex-col sm:flex-row gap-4 items-end" role="group" aria-label="Search and filters">
               {/* Search Bar - Takes more space */}
               <div className="flex-1 w-full sm:min-w-[300px]">
+                <label htmlFor="item-search" className="sr-only">Search items</label>
                 <div className="relative">
                   <input
+                    id="item-search"
                     type="text"
                     placeholder="Search by name or description..."
                     value={search}
@@ -525,6 +530,9 @@ export default function ItemsPage() {
                     role="searchbox"
                     aria-label="Search items"
                     data-testid="item-search"
+                    data-test-search-state={searchState}
+                    data-test-last-search={lastFinishedSearch}
+                    data-test-search-transition-id={searchTransitionId}
                     className="w-full px-4 pl-10 pr-10 py-2.5 text-sm border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white hover:border-slate-400 placeholder:text-slate-400 focus:outline-none"
                   />
                   <div className="absolute left-3 top-1/2 transform -translate-y-1/2 z-10 pointer-events-none">
@@ -554,7 +562,6 @@ export default function ItemsPage() {
                   value={status}
                   onChange={(e) => handleStatusChange(e.target.value)}
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white hover:border-slate-400"
-                  role="combobox"
                   aria-label="Filter by status"
                   data-testid="filter-status"
                 >
@@ -571,7 +578,6 @@ export default function ItemsPage() {
                   value={category}
                   onChange={(e) => handleCategoryChange(e.target.value)}
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white hover:border-slate-400"
-                  role="combobox"
                   aria-label="Filter by category"
                   data-testid="filter-category"
                 >
@@ -594,6 +600,7 @@ export default function ItemsPage() {
                     }}
                     variant="secondary"
                     dataTestid="clear-filters"
+                    ariaLabel="Clear all search and filter criteria"
                     className="w-full sm:w-auto"
                   >
                     Clear
@@ -610,7 +617,7 @@ export default function ItemsPage() {
 
           {/* Loading State */}
           {loading && items.length === 0 && (
-            <div className="text-center py-12" aria-busy="true" aria-live="polite" data-testid="loading-items">
+            <div className="text-center py-12" role="status" aria-busy="true" aria-live="polite" data-testid="loading-items">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
               <p className="mt-4 text-slate-600 font-medium">Loading items...</p>
             </div>
@@ -618,17 +625,17 @@ export default function ItemsPage() {
 
           {/* Empty State */}
           {!loading && items.length === 0 && !error && (
-            <div className="text-center py-12" role="status" data-testid="empty-state">
+            <div className="text-center py-12" role="status" aria-label="No items found" data-testid="empty-state">
               <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2 leading-tight">
+              <h2 className="text-lg font-semibold text-slate-900 mb-2 leading-tight">
                 {search || status !== 'all' || category !== 'all'
                   ? 'No items match your filters'
                   : 'No items found'}
-              </h3>
+              </h2>
               <p className="text-slate-600 mb-4 leading-relaxed">
                 {search || status !== 'all' || category !== 'all'
                   ? 'Try adjusting your search criteria or filters.'
@@ -638,10 +645,18 @@ export default function ItemsPage() {
           )}
 
           {/* Items Table Container */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden relative min-h-[400px]">
+          <div 
+            className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden relative min-h-[400px]"
+            data-test-ready={!loading}
+            data-test-items-count={items.length}
+          >
             {/* Search/Filter Loader Overlay */}
             {loading && items.length > 0 && (
-              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex items-center justify-center transition-all duration-300">
+              <div 
+                className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex items-center justify-center transition-all duration-300"
+                role="status"
+                aria-label="Updating items list"
+              >
                 <div className="flex flex-col items-center bg-white px-6 py-4 rounded-2xl shadow-xl border border-slate-100">
                   <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
                   <p className="mt-3 text-sm font-bold text-indigo-900">Updating list...</p>
@@ -651,29 +666,30 @@ export default function ItemsPage() {
 
             {items.length > 0 ? (
               <>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto" tabIndex="0" role="region" aria-label="Items inventory table">
                 <table
                   className="min-w-full divide-y divide-slate-200 table-fixed"
-                  role="table"
-                  aria-label="Items table"
+                  role="grid"
+                  aria-label="Items inventory grid"
                   data-testid="items-table"
                 >
                   <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="px-6 py-3.5 text-left w-12">
+                    <tr role="row">
+                      <th className="px-6 py-3.5 text-left w-12" role="columnheader">
                         <input
                           type="checkbox"
                           checked={items.length > 0 && selectedItems.length === items.length}
                           onChange={handleSelectAll}
                           className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
-                          aria-label="Select all items"
+                          aria-label="Select all items on this page"
                           data-testid="select-all-checkbox"
                         />
                       </th>
                       <th
                         className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group w-1/4"
                         onClick={() => handleSort('name')}
-                        role="button"
+                        role="columnheader"
+                        aria-sort={sortBy.includes('name') ? (sortOrder[sortBy.indexOf('name')] === 'asc' ? 'ascending' : 'descending') : 'none'}
                         aria-label="Sort by name"
                         data-testid="sort-name"
                       >
@@ -682,16 +698,17 @@ export default function ItemsPage() {
                           {getSortIndicator('name')}
                         </span>
                       </th>
-                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider w-1/3">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider w-1/3" role="columnheader">
                         Description
                       </th>
-                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider w-32">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider w-32" role="columnheader">
                         Status
                       </th>
                       <th
                         className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group w-40"
                         onClick={() => handleSort('category')}
-                        role="button"
+                        role="columnheader"
+                        aria-sort={sortBy.includes('category') ? (sortOrder[sortBy.indexOf('category')] === 'asc' ? 'ascending' : 'descending') : 'none'}
                         aria-label="Sort by category"
                         data-testid="sort-category"
                       >
@@ -703,7 +720,8 @@ export default function ItemsPage() {
                       <th
                         className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group w-28"
                         onClick={() => handleSort('price')}
-                        role="button"
+                        role="columnheader"
+                        aria-sort={sortBy.includes('price') ? (sortOrder[sortBy.indexOf('price')] === 'asc' ? 'ascending' : 'descending') : 'none'}
                         aria-label="Sort by price"
                         data-testid="sort-price"
                       >
@@ -715,7 +733,8 @@ export default function ItemsPage() {
                       <th
                         className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider cursor-pointer hover:bg-slate-100 active:bg-slate-200 transition-colors group w-32"
                         onClick={() => handleSort('createdAt')}
-                        role="button"
+                        role="columnheader"
+                        aria-sort={sortBy.includes('createdAt') ? (sortOrder[sortBy.indexOf('createdAt')] === 'asc' ? 'ascending' : 'descending') : 'none'}
                         aria-label="Sort by created date"
                         data-testid="sort-created"
                       >
@@ -724,53 +743,56 @@ export default function ItemsPage() {
                           {getSortIndicator('createdAt')}
                         </span>
                       </th>
-                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider w-40">
+                      <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider w-40" role="columnheader">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-slate-200 table-fixed">
+                  <tbody className="bg-white divide-y divide-slate-200 table-fixed" role="rowgroup">
                     {items.map((item) => (
                       <tr 
                         key={item._id} 
+                        role="row"
+                        aria-label={`Item: ${item.name}, Category: ${item.category}, Status: ${item.is_active ? 'Active' : 'Inactive'}`}
                         data-testid={`item-row-${item._id}`}
+                        data-test-item-status={item.is_active ? 'active' : 'inactive'}
                         className={`hover:bg-slate-50 transition-colors h-16 ${selectedItems.includes(item._id) ? 'bg-indigo-50/50' : ''}`}
                       >
-                        <td className="px-6 py-4 whitespace-nowrap w-12">
+                        <td className="px-6 py-4 whitespace-nowrap w-12" role="gridcell">
                           <input
                             type="checkbox"
                             checked={selectedItems.includes(item._id)}
                             onChange={() => handleSelectItem(item._id)}
                             className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
-                            aria-label={`Select ${item.name}`}
+                            aria-label={`Select item ${item.name}`}
                             data-testid={`select-item-${item._id}`}
                           />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 truncate max-w-[200px]" data-testid={`item-name-${item._id}`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 truncate max-w-[200px]" role="gridcell" data-testid={`item-name-${item._id}`}>
                           {item.name}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-600 leading-relaxed truncate max-w-[300px]" data-testid={`item-description-${item._id}`} title={item.description}>
+                        <td className="px-6 py-4 text-sm text-slate-600 leading-relaxed truncate max-w-[300px]" role="gridcell" data-testid={`item-description-${item._id}`} title={item.description}>
                           {truncateDescription(item.description)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap w-32" data-testid={`item-status-${item._id}`}>
+                        <td className="px-6 py-4 whitespace-nowrap w-32" role="gridcell" data-testid={`item-status-${item._id}`}>
                           <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                             item.is_active
                               ? 'bg-emerald-50 text-emerald-700'
                               : 'bg-slate-100 text-slate-700'
-                          }`}>
+                          }`} aria-label={`Status: ${item.is_active ? 'Active' : 'Inactive'}`}>
                             {item.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 truncate max-w-[150px]" data-testid={`item-category-${item._id}`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 truncate max-w-[150px]" role="gridcell" data-testid={`item-category-${item._id}`}>
                           {item.category}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 w-28" data-testid={`item-price-${item._id}`}>
-                          {formatPrice(item.price)}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 w-28" role="gridcell" data-testid={`item-price-${item._id}`}>
+                          <span aria-label={`Price: ${formatPrice(item.price)}`}>{formatPrice(item.price)}</span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 w-32" data-testid={`item-created-${item._id}`}>
-                          {formatDate(item.createdAt)}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 w-32" role="gridcell" data-testid={`item-created-${item._id}`}>
+                          <span aria-label={`Created on: ${formatDate(item.createdAt)}`}>{formatDate(item.createdAt)}</span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium w-40" data-testid={`item-actions-${item._id}`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium w-40" role="gridcell" data-testid={`item-actions-${item._id}`}>
                           <div className="flex space-x-2">
                             <button
                               onClick={(e) => handleViewItem(item._id, e)}
@@ -807,7 +829,7 @@ export default function ItemsPage() {
                             ) : !item.is_active && canPerform('activate', item) ? (
                               <button
                                 onClick={() => handleActivateItem(item)}
-                                className="text-emerald-600 hover:text-emerald-700 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 rounded-lg px-3 py-1.5 transition-colors duration-150"
+                                className="text-emerald-700 hover:text-emerald-700 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 rounded-lg px-3 py-1.5 transition-colors duration-150"
                                 role="button"
                                 aria-label={`Activate ${item.name}`}
                                 data-testid={`activate-item-${item._id}`}
@@ -832,6 +854,7 @@ export default function ItemsPage() {
                       disabled={!pagination.has_prev}
                       variant="secondary"
                       dataTestid="pagination-prev"
+                      ariaLabel="Go to previous page"
                     >
                       Previous
                     </Button>
@@ -840,6 +863,7 @@ export default function ItemsPage() {
                       disabled={!pagination.has_next}
                       variant="secondary"
                       dataTestid="pagination-next"
+                      ariaLabel="Go to next page"
                     >
                       Next
                     </Button>
@@ -861,7 +885,6 @@ export default function ItemsPage() {
                           value={pagination.limit}
                           onChange={(e) => handleLimitChange(e.target.value)}
                           className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 bg-white"
-                          role="combobox"
                           aria-label="Items per page"
                           data-testid="pagination-limit"
                         >
@@ -877,6 +900,7 @@ export default function ItemsPage() {
                           disabled={!pagination.has_prev}
                           variant="secondary"
                           dataTestid="pagination-prev"
+                          ariaLabel="Go to previous page"
                         >
                           Previous
                         </Button>
@@ -897,6 +921,7 @@ export default function ItemsPage() {
                               onClick={() => handlePageChange(pageNum)}
                               variant={pagination.page === pageNum ? 'primary' : 'secondary'}
                               dataTestid={`pagination-page-${pageNum}`}
+                              ariaLabel={`Go to page ${pageNum}`}
                             >
                               {pageNum}
                             </Button>
@@ -907,6 +932,7 @@ export default function ItemsPage() {
                           disabled={!pagination.has_next}
                           variant="secondary"
                           dataTestid="pagination-next"
+                          ariaLabel="Go to next page"
                         >
                           Next
                         </Button>

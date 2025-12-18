@@ -224,7 +224,10 @@ async function processNextBatch(jobId, userId, role) {
       
       // Manually trigger progress calc since updateOne doesn't
       const newDone = updatedJob.processedIds.length + updatedJob.failedItems.length + updatedJob.skippedIds.length;
-      await BulkJob.updateOne({ _id: jobId }, { $set: { progress: Math.round((newDone / job.totalItems) * 100) } });
+      const newProgress = Math.round((newDone / job.totalItems) * 100);
+      const newStatus = newDone >= job.totalItems ? 'completed' : 'processing';
+      
+      await BulkJob.updateOne({ _id: jobId }, { $set: { progress: newProgress, status: newStatus } });
 
     } catch (error) {
       const isSkip = (error.code === 11000 || error.statusCode === 409 || error.message === 'ITEM_INACTIVE');
@@ -234,7 +237,10 @@ async function processNextBatch(jobId, userId, role) {
 
       const updatedJob = await BulkJob.findOneAndUpdate({ _id: jobId }, updateQuery, { new: true });
       const newDone = updatedJob.processedIds.length + updatedJob.failedItems.length + updatedJob.skippedIds.length;
-      await BulkJob.updateOne({ _id: jobId }, { $set: { progress: Math.round((newDone / job.totalItems) * 100) } });
+      const newProgress = Math.round((newDone / job.totalItems) * 100);
+      const newStatus = newDone >= job.totalItems ? 'completed' : 'processing';
+      
+      await BulkJob.updateOne({ _id: jobId }, { $set: { progress: newProgress, status: newStatus } });
     }
   }
 

@@ -274,6 +274,7 @@ export default function ItemCreationForm() {
   return (
     <form
       onSubmit={handleSubmit}
+      noValidate
       role="form"
       aria-label="Create item form"
       encType="multipart/form-data"
@@ -303,10 +304,11 @@ export default function ItemCreationForm() {
 
       {/* Description */}
       <div className="mb-5">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="item-description" className="block text-sm font-medium text-gray-700 mb-2">
           Description <span className="text-red-500">*</span>
         </label>
         <textarea
+          id="item-description"
           value={values.description}
           onChange={(e) => handleChange('description', e.target.value)}
           onBlur={() => handleBlur('description')}
@@ -314,7 +316,7 @@ export default function ItemCreationForm() {
           rows={4}
           required
           role="textbox"
-          aria-label="Description"
+          aria-label="Item Description"
           aria-invalid={!!(touched.description && errors.description)}
           aria-describedby={touched.description && errors.description ? 'description-error' : undefined}
           data-testid="item-description"
@@ -344,16 +346,16 @@ export default function ItemCreationForm() {
 
       {/* Item Type */}
       <div className="mb-5">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="item-type" className="block text-sm font-medium text-gray-700 mb-2">
           Item Type <span className="text-red-500">*</span>
         </label>
         <select
+          id="item-type"
           value={values.item_type}
           onChange={(e) => handleChange('item_type', e.target.value)}
           onBlur={() => handleBlur('item_type')}
           required
-          role="combobox"
-          aria-label="Item Type"
+          aria-label="Select Item Type"
           aria-invalid={!!(touched.item_type && errors.item_type)}
           data-testid="item-type"
           className={`
@@ -453,6 +455,7 @@ export default function ItemCreationForm() {
           onBlur={() => handleBlur('embed_url')}
           error={touched.embed_url ? errors.embed_url : ''}
           dataTestid="item-embed-url"
+          ariaLabel="Optional Embed URL for external content"
           placeholder="https://example.com/embed/content"
         />
         <p className="mt-1 text-sm text-gray-500">
@@ -467,6 +470,7 @@ export default function ItemCreationForm() {
           loading={isSubmitting}
           disabled={isSubmitting}
           dataTestid="create-item-submit"
+          ariaLabel="Create Item Submit"
           className="flex-1"
         >
           Create Item
@@ -476,6 +480,7 @@ export default function ItemCreationForm() {
           onClick={handleCancel}
           disabled={isSubmitting}
           dataTestid="create-item-cancel"
+          ariaLabel="Cancel Item Creation"
           variant="secondary"
         >
           Cancel

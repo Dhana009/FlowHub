@@ -332,21 +332,23 @@ export default function DeleteConfirmationModal({
 
         {/* Buttons (PRD Section 7.1) */}
         <div className="flex justify-end gap-3">
-          <button
+          <Button
             ref={cancelButtonRef}
             onClick={handleCancel}
             disabled={isDeleting}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            data-testid="cancel-button"
+            variant="secondary"
+            dataTestid="cancel-button"
+            ariaLabel="Cancel deactivation"
           >
             Cancel
-          </button>
+          </Button>
           
           {showRetry ? (
             <Button
               onClick={handleRetry}
               disabled={isDeleting}
               dataTestid="retry-button"
+              ariaLabel={`Retry deactivation attempt ${retryCount + 1} of ${MAX_RETRIES}`}
             >
               {modalState === MODAL_STATES.RETRYING 
                 ? `Retrying... (${retryCount}/${MAX_RETRIES})`
@@ -354,25 +356,17 @@ export default function DeleteConfirmationModal({
               }
             </Button>
           ) : (
-            <button
+            <Button
               ref={deleteButtonRef}
               onClick={handleConfirm}
+              loading={isDeleting}
               disabled={isDeleting}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              data-testid="confirm-delete-button"
+              variant="danger"
+              dataTestid="confirm-delete-button"
+              ariaLabel={`Confirm deactivation of item ${itemDisplayName}`}
             >
-              {isDeleting ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Deactivating...
-                </>
-              ) : (
-                'Deactivate'
-              )}
-            </button>
+              Deactivate
+            </Button>
           )}
         </div>
         </div>

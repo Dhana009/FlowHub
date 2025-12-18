@@ -67,52 +67,66 @@ export default function ActivityLogsPage() {
         {error && <ErrorMessage message={error} onRetry={() => fetchActivities()} />}
 
         {loading && activities.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12" role="status" aria-label="Loading activity logs">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
             <p className="mt-4 text-slate-600">Loading activities...</p>
           </div>
         ) : activities.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
+          <div className="text-center py-12 text-slate-500" role="status" aria-label="No activity logs found">
             No activity logs found.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
+          <div className="overflow-x-auto" tabIndex="0" role="region" aria-label="Activity logs table">
+            <table 
+              className="min-w-full divide-y divide-slate-200"
+              role="grid"
+              aria-label="System activity audit logs"
+            >
               <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">User</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Action</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Resource</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Details</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">IP Address</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Time</th>
+                <tr role="row">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider" role="columnheader">User</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider" role="columnheader">Action</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider" role="columnheader">Resource</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider" role="columnheader">Details</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider" role="columnheader">IP Address</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider" role="columnheader">Time</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
+              <tbody className="bg-white divide-y divide-slate-200" role="rowgroup">
                 {activities.map((log) => (
-                  <tr key={log._id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                  <tr 
+                    key={log._id} 
+                    role="row"
+                    aria-label={`Activity: ${formatActionName(log.action)} by ${log.userId?.firstName} on ${log.resourceType}`}
+                    className="hover:bg-slate-50 transition-colors"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap" role="gridcell">
                       <div className="text-sm font-medium text-slate-900">
                         {log.userId?.firstName} {log.userId?.lastName}
                       </div>
                       <div className="text-xs text-slate-500">{log.userId?.email}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getActionColor(log.action)}`}>
+                    <td className="px-6 py-4 whitespace-nowrap" role="gridcell">
+                      <span 
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold ${getActionColor(log.action)}`}
+                        aria-label={`Action: ${formatActionName(log.action)}`}
+                      >
                         {formatActionName(log.action)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600" role="gridcell">
                       {log.resourceType}
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 max-w-xs truncate">
+                    <td className="px-6 py-4 text-sm text-slate-600 max-w-xs truncate" role="gridcell" title={JSON.stringify(log.details)}>
                       {JSON.stringify(log.details)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-500 font-mono">
+                    <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-500 font-mono" role="gridcell">
                       {log.ipAddress}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                      {formatDate(log.timestamp)}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500" role="gridcell">
+                      <span aria-label={`Timestamp: ${formatDate(log.timestamp)}`}>
+                        {formatDate(log.timestamp)}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -133,6 +147,7 @@ export default function ActivityLogsPage() {
                 size="sm"
                 onClick={() => fetchActivities(pagination.page - 1)}
                 disabled={pagination.page <= 1}
+                ariaLabel="Go to previous page of logs"
               >
                 Previous
               </Button>
@@ -141,6 +156,7 @@ export default function ActivityLogsPage() {
                 size="sm"
                 onClick={() => fetchActivities(pagination.page + 1)}
                 disabled={pagination.page >= pagination.total_pages}
+                ariaLabel="Go to next page of logs"
               >
                 Next
               </Button>

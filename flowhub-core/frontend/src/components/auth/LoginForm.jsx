@@ -70,6 +70,7 @@ export default function LoginForm() {
       role="form"
       aria-label="Login form"
       className="w-full"
+      noValidate
     >
       <Input
         type="email"
@@ -103,7 +104,9 @@ export default function LoginForm() {
             checked={values.rememberMe}
             onChange={(e) => handleChange('rememberMe', e.target.checked)}
             data-testid="login-remember-me"
-            aria-label="Remember Me"
+            role="checkbox"
+            aria-checked={values.rememberMe}
+            aria-label="Remember me on this device"
             className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 focus:ring-2"
           />
           <span className="ml-2 text-sm text-slate-700">Remember me</span>
