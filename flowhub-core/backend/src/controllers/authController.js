@@ -37,11 +37,14 @@ function setRefreshTokenCookie(res, refreshToken, rememberMe = false) {
  * @param {object} res - Express response
  */
 function clearRefreshTokenCookie(res) {
+  const isProduction = process.env.NODE_ENV === 'production';
+
   res.cookie('refreshToken', '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    maxAge: 0
+    secure: true, // Required for cross-site
+    sameSite: isProduction ? 'none' : 'lax',
+    maxAge: 0,
+    path: '/'
   });
 }
 

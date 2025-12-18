@@ -180,15 +180,33 @@ export const AuthProvider = ({ children }) => {
    */
   const logout = useCallback(async () => {
     try {
-      // Call logout endpoint to clear refresh token cookie
+      // 1. Broadcast to other tabs immediately (Sync UI)
+      window.localStorage.setItem('flowhub-logout-event', Date.now().toString());
+      
+      // 2. Call logout endpoint to clear refresh token cookie
       await authService.logout();
     } catch (error) {
       console.error('Logout error:', error);
-      // Continue with logout even if API call fails
     } finally {
-      // Clear state regardless of API call success
+      // 3. Clear state regardless of API call success
       clearAuth();
     }
+  }, [clearAuth]);
+
+  /**
+   * Cross-Tab Synchronization Listener
+   * Detects if user logged out in another tab
+   */
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'flowhub-logout-event') {
+        console.log('🚪 Logout detected in another tab. Syncing session...');
+        clearAuth();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [clearAuth]);
 
   /**
