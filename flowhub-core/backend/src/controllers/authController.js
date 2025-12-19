@@ -316,6 +316,23 @@ async function signup(req, res, next) {
       });
     }
 
+    // Validate role enum if provided
+    // If role is provided (not undefined), it must be a non-empty string in the allowed enum
+    if (role !== undefined) {
+      const allowedRoles = ['ADMIN', 'EDITOR', 'VIEWER'];
+      // Reject empty string, null, or invalid enum values
+      if (!role || typeof role !== 'string' || role.trim() === '' || !allowedRoles.includes(role)) {
+        return res.status(422).json({
+          status: 'error',
+          error_code: 422,
+          error_type: 'Unprocessable Entity - Invalid enum value',
+          message: 'Role must be one of: ADMIN, EDITOR, VIEWER. Empty string is not allowed.',
+          timestamp: new Date().toISOString(),
+          path: req.path
+        });
+      }
+    }
+
     // Business logic
     const result = await authService.signup(firstName, lastName, email, password, otp, role);
 

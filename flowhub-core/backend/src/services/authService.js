@@ -108,11 +108,15 @@ async function signup(firstName, lastName, email, password, otp, role = 'EDITOR'
   const emailLower = email.toLowerCase();
 
   // Validate role if provided
+  // If role is provided (not undefined), it must be a non-empty string in the allowed list
   const allowedRoles = ['ADMIN', 'EDITOR', 'VIEWER'];
-  if (role && !allowedRoles.includes(role)) {
-    const error = new Error('Invalid role specified');
-    error.statusCode = 400;
-    throw error;
+  if (role !== undefined) {
+    // Reject empty string, null, or invalid values
+    if (!role || typeof role !== 'string' || role.trim() === '' || !allowedRoles.includes(role)) {
+      const error = new Error('Invalid role specified. Role must be one of: ADMIN, EDITOR, VIEWER');
+      error.statusCode = 400;
+      throw error;
+    }
   }
 
   // Consume OTP (verify and mark as used)
