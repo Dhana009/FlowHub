@@ -66,6 +66,46 @@ async function login(req, res, next) {
       });
     }
 
+    // Type validation: email must be a string (BUG-02 fix)
+    if (typeof email !== 'string') {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: 'Email must be a string'
+      });
+    }
+
+    // Type validation: password must be a string
+    if (typeof password !== 'string') {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: 'Password must be a string'
+      });
+    }
+
+    // Basic password validation: must not be empty
+    if (password.trim().length === 0) {
+      return res.status(400).json({
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: 'Password cannot be empty'
+      });
+    }
+
+    // Minimum length validation for boundary testing
+    if (password.length < 8) {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: 'Password must be at least 8 characters long'
+      });
+    }
+
     const emailError = validateEmail(email);
     if (emailError) {
       return res.status(422).json({
@@ -88,6 +128,20 @@ async function login(req, res, next) {
       user: result.user
     });
   } catch (error) {
+    // BUG-03, BUG-06 fix: Handle authentication errors with proper 401 status
+    // Check if error has statusCode property (from service layer) or match by message
+    if (error.statusCode === 401 ||
+        error.message.includes('Invalid email or password') ||
+        error.message.includes('Account is locked') ||
+        error.message.includes('Account deactivated') ||
+        error.message.includes('deactivated')) {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: error.message || 'Invalid email or password'
+      });
+    }
     next(error);
   }
 }
@@ -244,6 +298,16 @@ async function signup(req, res, next) {
       });
     }
 
+    // Type validation: password must be a string (BUG-01, BUG-05 fix)
+    if (typeof password !== 'string') {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: 'Password must be a string'
+      });
+    }
+
     // Business logic
     const result = await authService.signup(firstName, lastName, email, password, otp, role);
 
@@ -261,6 +325,15 @@ async function signup(req, res, next) {
       return res.status(409).json({
         error: 'This email is already registered',
         statusCode: 409
+      });
+    }
+    // Handle password validation errors (from service layer)
+    if (error.message.includes('Password must be') || error.message.includes('password')) {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: error.message
       });
     }
     next(error);

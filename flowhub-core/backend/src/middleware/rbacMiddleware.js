@@ -28,15 +28,26 @@ function authorize(allowedRoles = [], options = {}) {
         });
       }
 
-      // 1. Role-based check
-      if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-        return res.status(403).json({
-          status: 'error',
-          error_code: 403,
-          error_type: 'Forbidden - Insufficient Permissions',
-          message: `Access denied. Requires one of the following roles: ${allowedRoles.join(', ')}`,
-          user_role: user.role
-        });
+      // 1. Role-based check (BUG-07 fix: Normalize role comparison to handle case/whitespace)
+      if (allowedRoles.length > 0) {
+        // Normalize user role and allowed roles for comparison
+        const userRole = user.role ? user.role.toString().toUpperCase().trim() : null;
+        const normalizedAllowedRoles = allowedRoles.map(role => role.toString().toUpperCase().trim());
+        
+        if (!userRole || !normalizedAllowedRoles.includes(userRole)) {
+          // Log for debugging if role mismatch occurs
+          if (userRole) {
+            console.warn(`[RBAC] Role mismatch - User role: "${user.role}" (normalized: "${userRole}"), Allowed: [${allowedRoles.join(', ')}] (normalized: [${normalizedAllowedRoles.join(', ')}])`);
+          }
+          
+          return res.status(403).json({
+            status: 'error',
+            error_code: 403,
+            error_type: 'Forbidden - Insufficient Permissions',
+            message: `Access denied. Requires one of the following roles: ${allowedRoles.join(', ')}`,
+            user_role: user.role
+          });
+        }
       }
 
       // 2. Ownership-based check (Admins bypass this)

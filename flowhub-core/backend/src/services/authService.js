@@ -30,26 +30,34 @@ async function login(email, password, rememberMe = false, req = null) {
   // Check if account is locked
   const isLocked = await checkAccountLockout(emailLower);
   if (isLocked) {
-    throw new Error('Account is locked due to too many failed login attempts. Please try again later.');
+    const error = new Error('Account is locked due to too many failed login attempts. Please try again later.');
+    error.statusCode = 401;
+    throw error;
   }
 
   // Find user by email (include passwordHash)
   const user = await User.findOne({ email: emailLower }).select('+passwordHash');
   if (!user) {
     await incrementFailedAttempts(emailLower);
-    throw new Error('Invalid email or password');
+    const error = new Error('Invalid email or password');
+    error.statusCode = 401;
+    throw error;
   }
 
   // Check if user is active (Security Guardrail)
   if (user.isActive === false) {
-    throw new Error('Your account has been deactivated. Please contact an administrator.');
+    const error = new Error('Your account has been deactivated. Please contact an administrator.');
+    error.statusCode = 401;
+    throw error;
   }
 
   // Verify password
   const isPasswordValid = await verifyPassword(password, user.passwordHash);
   if (!isPasswordValid) {
     await incrementFailedAttempts(emailLower);
-    throw new Error('Invalid email or password');
+    const error = new Error('Invalid email or password');
+    error.statusCode = 401;
+    throw error;
   }
 
   // Generate tokens

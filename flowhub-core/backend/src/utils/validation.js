@@ -16,6 +16,11 @@ function validateEmail(email) {
     return 'Email is required';
   }
 
+  // Type validation: email must be a string
+  if (typeof email !== 'string') {
+    return 'Email must be a string';
+  }
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return 'Please provide a valid email address';
@@ -34,6 +39,11 @@ function validateEmail(email) {
 function validateName(name, fieldName = 'Name') {
   if (!name) {
     return `${fieldName} is required`;
+  }
+
+  // Type validation: name must be a string
+  if (typeof name !== 'string') {
+    return `${fieldName} must be a string`;
   }
 
   if (name.length < 2) {
@@ -61,6 +71,11 @@ function validateName(name, fieldName = 'Name') {
 function validateOTP(otp) {
   if (!otp) {
     return 'OTP is required';
+  }
+
+  // Type validation: OTP must be a string
+  if (typeof otp !== 'string') {
+    return 'OTP must be a string';
   }
 
   const otpRegex = /^[0-9]{6}$/;

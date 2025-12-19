@@ -26,6 +26,16 @@ async function loginRateLimiter(req, res, next) {
       });
     }
 
+    // Type validation: email must be a string (prevent crash in middleware)
+    if (typeof email !== 'string') {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: 'Email must be a string'
+      });
+    }
+
     // Check if account is locked
     const isLocked = await authService.checkAccountLockout(email.toLowerCase());
 
@@ -59,6 +69,16 @@ async function otpRateLimiter(req, res, next) {
       return res.status(400).json({
         error: 'Email is required',
         statusCode: 400
+      });
+    }
+
+    // Type validation: email must be a string (prevent crash in middleware)
+    if (typeof email !== 'string') {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: 'Email must be a string'
       });
     }
 
