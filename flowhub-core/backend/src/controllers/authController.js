@@ -308,6 +308,16 @@ async function signup(req, res, next) {
       });
     }
 
+    // Password length validation (BUG-05 fix: prevent short passwords from reaching service layer)
+    if (password.length < 8) {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity',
+        message: 'Password must be at least 8 characters long'
+      });
+    }
+
     // Business logic
     const result = await authService.signup(firstName, lastName, email, password, otp, role);
 
