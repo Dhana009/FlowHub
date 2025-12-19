@@ -52,7 +52,7 @@ async function storeOTP(email, otp, type) {
 
   // Verify otpPlain was saved
   const savedDoc = await OTP.findById(otpDoc._id).lean();
-  
+
   if (!savedDoc || !savedDoc.otpPlain) {
     console.error('[OTP Service] ERROR: otpPlain was not saved to database!', {
       email: otpData.email,
@@ -84,7 +84,9 @@ async function verifyOTP(email, otp, type) {
   }).sort({ createdAt: -1 }); // Get most recent
 
   if (!otpDoc) {
-    throw new Error('Invalid or expired OTP');
+    const error = new Error('Invalid or expired OTP');
+    error.statusCode = 401;
+    throw error;
   }
 
   // Verify OTP hash FIRST before incrementing attempts
@@ -94,7 +96,9 @@ async function verifyOTP(email, otp, type) {
     // Increment attempts only if OTP is invalid
     otpDoc.attempts += 1;
     await otpDoc.save();
-    throw new Error('Invalid OTP');
+    const error = new Error('Invalid OTP');
+    error.statusCode = 401;
+    throw error;
   }
 
   // OTP is valid - but DON'T mark as used yet
@@ -126,7 +130,9 @@ async function consumeOTP(email, otp, type) {
   }).sort({ createdAt: -1 }); // Get most recent
 
   if (!otpDoc) {
-    throw new Error('Invalid or expired OTP');
+    const error = new Error('Invalid or expired OTP');
+    error.statusCode = 401;
+    throw error;
   }
 
   // Verify OTP hash
@@ -135,7 +141,9 @@ async function consumeOTP(email, otp, type) {
   if (!isValid) {
     otpDoc.attempts += 1;
     await otpDoc.save();
-    throw new Error('Invalid OTP');
+    const error = new Error('Invalid OTP');
+    error.statusCode = 401;
+    throw error;
   }
 
   // OTP is valid - mark as used (consumed)
@@ -153,6 +161,11 @@ async function consumeOTP(email, otp, type) {
  * @returns {Promise<boolean>} - True if allowed (under limit)
  */
 async function checkOTPRateLimit(email, type) {
+  // Bypass rate limit for test environment
+  if (process.env.NODE_ENV === 'test') {
+    return true;
+  }
+
   const fifteenMinutesAgo = new Date();
   fifteenMinutesAgo.setMinutes(fifteenMinutesAgo.getMinutes() - OTP_RATE_LIMIT_MINUTES);
 

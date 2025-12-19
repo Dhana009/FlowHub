@@ -21,11 +21,11 @@ function setRefreshTokenCookie(res, refreshToken, rememberMe = false) {
   // PRODUCTION HARDENING: 
   // SameSite: 'none' and Secure: true are REQUIRED for Vercel -> Render communication
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
     secure: true, // Required for cross-site cookies
-    sameSite: isProduction ? 'none' : 'lax', 
+    sameSite: isProduction ? 'none' : 'lax',
     maxAge: maxAge,
     path: '/'
   });
@@ -131,10 +131,10 @@ async function login(req, res, next) {
     // BUG-03, BUG-06 fix: Handle authentication errors with proper 401 status
     // Check if error has statusCode property (from service layer) or match by message
     if (error.statusCode === 401 ||
-        error.message.includes('Invalid email or password') ||
-        error.message.includes('Account is locked') ||
-        error.message.includes('Account deactivated') ||
-        error.message.includes('deactivated')) {
+      error.message.includes('Invalid email or password') ||
+      error.message.includes('Account is locked') ||
+      error.message.includes('Account deactivated') ||
+      error.message.includes('deactivated')) {
       return res.status(401).json({
         status: 'error',
         error_code: 401,
@@ -214,10 +214,9 @@ async function verifySignupOTP(req, res, next) {
 
     const emailError = validateEmail(email);
     if (emailError) {
-      return res.status(422).json({
-        error: emailError,
-        statusCode: 422
-      });
+      const error = new Error(emailError);
+      error.statusCode = 422;
+      return next(error);
     }
 
     const otpError = validateOTP(otp);
@@ -282,10 +281,9 @@ async function signup(req, res, next) {
 
     const emailError = validateEmail(email);
     if (emailError) {
-      return res.status(422).json({
-        error: emailError,
-        statusCode: 422
-      });
+      const error = new Error(emailError);
+      error.statusCode = 422;
+      return next(error);
     }
 
     const otpError = validateOTP(otp);
@@ -332,19 +330,13 @@ async function signup(req, res, next) {
   } catch (error) {
     // Handle duplicate email error
     if (error.message.includes('already registered') || error.message.includes('duplicate')) {
-      return res.status(409).json({
-        error: 'This email is already registered',
-        statusCode: 409
-      });
+      error.statusCode = 409;
+      return next(error);
     }
     // Handle password validation errors (from service layer)
     if (error.message.includes('Password must be') || error.message.includes('password')) {
-      return res.status(422).json({
-        status: 'error',
-        error_code: 422,
-        error_type: 'Unprocessable Entity',
-        message: error.message
-      });
+      error.statusCode = 422;
+      return next(error);
     }
     next(error);
   }
@@ -411,10 +403,9 @@ async function verifyPasswordResetOTP(req, res, next) {
 
     const emailError = validateEmail(email);
     if (emailError) {
-      return res.status(422).json({
-        error: emailError,
-        statusCode: 422
-      });
+      const error = new Error(emailError);
+      error.statusCode = 422;
+      return next(error);
     }
 
     const otpError = validateOTP(otp);
@@ -449,28 +440,30 @@ async function resetPassword(req, res, next) {
 
     // Input validation
     if (!email || !otp || !newPassword) {
-      return res.status(400).json({
-        error: 'Email, OTP, and new password are required',
-        statusCode: 400
-      });
+      const error = new Error('Email, OTP, and new password are required');
+      error.statusCode = 400;
+      return next(error);
     }
 
     const emailError = validateEmail(email);
     if (emailError) {
-      return res.status(422).json({
-        error: emailError,
-        statusCode: 422
-      });
+      const error = new Error(emailError);
+      error.statusCode = 422;
+      return next(error);
     }
 
     const otpError = validateOTP(otp);
     if (otpError) {
-      return res.status(422).json({
-        status: 'error',
-        error_code: 422,
-        error_type: 'Unprocessable Entity',
-        message: otpError
-      });
+      const error = new Error(otpError);
+      error.statusCode = 422;
+      return next(error);
+    }
+
+    // Type validation: newPassword must be a string
+    if (typeof newPassword !== 'string') {
+      const error = new Error('New password must be a string');
+      error.statusCode = 422;
+      return next(error);
     }
 
     // Business logic
@@ -513,7 +506,7 @@ async function refreshToken(req, res, next) {
   } catch (error) {
     // Clear invalid refresh token cookie
     clearRefreshTokenCookie(res);
-    
+
     if (error.message.includes('expired') || error.message.includes('invalid')) {
       return res.status(401).json({
         status: 'error',
@@ -522,7 +515,7 @@ async function refreshToken(req, res, next) {
         message: 'Refresh token expired or invalid'
       });
     }
-    
+
     next(error);
   }
 }

@@ -261,12 +261,88 @@ async function getItems(req, res, next) {
       });
     }
 
-    // Parse query parameters with defaults (no validation errors for invalid values)
+    // ========== QUERY PARAMETER VALIDATION ==========
+    
+    // 1. Validate and parse page parameter
+    let page = 1;
+    if (req.query.page !== undefined) {
+      const pageValue = parseInt(req.query.page);
+      if (isNaN(pageValue) || pageValue < 1) {
+        return res.status(422).json({
+          status: 'error',
+          error_code: 422,
+          error_type: 'Unprocessable Entity - Invalid query parameter',
+          message: 'Page must be a positive integer >= 1',
+          timestamp: new Date().toISOString(),
+          path: req.path
+        });
+      }
+      page = pageValue;
+    }
+    
+    // 2. Validate and parse limit parameter
+    let limit = 20;
+    if (req.query.limit !== undefined) {
+      const limitValue = parseInt(req.query.limit);
+      if (isNaN(limitValue) || limitValue < 1 || limitValue > 100) {
+        return res.status(422).json({
+          status: 'error',
+          error_code: 422,
+          error_type: 'Unprocessable Entity - Invalid query parameter',
+          message: 'Limit must be an integer between 1 and 100',
+          timestamp: new Date().toISOString(),
+          path: req.path
+        });
+      }
+      limit = limitValue;
+    }
+    
+    // 3. Validate sort_order enum values
+    let sort_order = ['desc'];
+    if (req.query.sort_order) {
+      const validSortOrders = ['asc', 'desc'];
+      
+      // Handle both single value and array
+      const sortOrders = Array.isArray(req.query.sort_order) 
+        ? req.query.sort_order 
+        : [req.query.sort_order];
+      
+      // Check if all values are valid
+      const invalidOrder = sortOrders.find(order => !validSortOrders.includes(order));
+      if (invalidOrder) {
+        return res.status(422).json({
+          status: 'error',
+          error_code: 422,
+          error_type: 'Unprocessable Entity - Invalid query parameter',
+          message: `sort_order must be "asc" or "desc", got "${invalidOrder}"`,
+          timestamp: new Date().toISOString(),
+          path: req.path
+        });
+      }
+      sort_order = sortOrders;
+    }
+    
+    // 4. Parse and validate status parameter
     const search = req.query.search || null;
-    const status = ['active', 'inactive'].includes(req.query.status) ? req.query.status : null;
+    const status = req.query.status && ['active', 'inactive'].includes(req.query.status) 
+      ? req.query.status 
+      : null;
+    
+    // Reject invalid status values
+    if (req.query.status && !['active', 'inactive'].includes(req.query.status)) {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity - Invalid query parameter',
+        message: `status must be "active" or "inactive", got "${req.query.status}"`,
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+    
     const category = req.query.category || null;
     
-    // Handle sort_by - can be array or single value
+    // 5. Handle sort_by - can be array or single value (no enum validation needed)
     let sort_by = ['createdAt'];
     if (req.query.sort_by) {
       if (Array.isArray(req.query.sort_by)) {
@@ -275,20 +351,6 @@ async function getItems(req, res, next) {
         sort_by = [req.query.sort_by];
       }
     }
-    
-    // Handle sort_order - can be array or single value
-    let sort_order = ['desc'];
-    if (req.query.sort_order) {
-      if (Array.isArray(req.query.sort_order)) {
-        sort_order = req.query.sort_order;
-      } else {
-        sort_order = [req.query.sort_order];
-      }
-    }
-    
-    // Pagination parameters with auto-correction
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
 
     // Build filters object
     const filters = {
