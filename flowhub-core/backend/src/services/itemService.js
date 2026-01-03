@@ -122,7 +122,9 @@ async function getItemById(itemId, userId = null, includeInactive = false, role 
     query.is_active = true;
   }
   
-  if (userId && role !== 'ADMIN') {
+  // ADMIN and VIEWER can see all items (VIEWER is read-only)
+  // Only EDITOR is restricted to their own items
+  if (userId && role !== 'ADMIN' && role !== 'VIEWER') {
     query.created_by = userId;
   }
   return await Item.findOne(query);
@@ -278,8 +280,9 @@ async function getItems(filters = {}, userId = null, role = null) {
   const query = {};
 
   // CRITICAL: Filter by user ownership for data isolation
-  // Users can only see items they created, unless they are ADMIN
-  if (userId && role !== 'ADMIN') {
+  // ADMIN and VIEWER can see all items (VIEWER is read-only)
+  // Only EDITOR is restricted to their own items
+  if (userId && role !== 'ADMIN' && role !== 'VIEWER') {
     query.created_by = userId;
   }
 
