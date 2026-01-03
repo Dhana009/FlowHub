@@ -32,6 +32,9 @@ router.post('/forgot-password/reset', authController.resetPassword);
 
 // Protected routes (authentication required)
 
+// Get current user (checkpoint endpoint)
+router.get('/me', verifyToken, authController.getCurrentUser);
+
 // Logout (requires authentication to clear tokens properly)
 router.post('/logout', verifyToken, authController.logout);
 

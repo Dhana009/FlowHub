@@ -554,6 +554,76 @@ async function logout(req, res, next) {
   }
 }
 
+/**
+ * Get current user (checkpoint endpoint)
+ * GET /auth/me
+ * 
+ * Validates access token and returns current authenticated user info.
+ * Used as a checkpoint to verify authentication state.
+ */
+async function getCurrentUser(req, res, next) {
+  try {
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication required',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Get full user data from database
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'User Not Found',
+        message: 'Your account no longer exists. Access denied.',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    if (user.isActive === false) {
+      return res.status(403).json({
+        status: 'error',
+        error_code: 403,
+        error_type: 'Account Deactivated',
+        message: 'Your account has been deactivated. Please contact support.',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Return user without passwordHash
+    const userObj = user.toObject();
+    delete userObj.passwordHash;
+
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        _id: userObj._id,
+        email: userObj.email,
+        firstName: userObj.firstName,
+        lastName: userObj.lastName,
+        role: userObj.role,
+        isActive: userObj.isActive,
+        createdAt: userObj.createdAt,
+        updatedAt: userObj.updatedAt
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   login,
   refreshToken,
@@ -563,6 +633,7 @@ module.exports = {
   requestPasswordResetOTP,
   verifyPasswordResetOTP,
   resetPassword,
-  logout
+  logout,
+  getCurrentUser
 };
 
