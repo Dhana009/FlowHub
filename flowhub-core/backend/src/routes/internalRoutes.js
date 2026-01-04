@@ -27,5 +27,20 @@ router.get('/otp', internalController.getOTP);
  */
 router.post('/seed', internalController.seedData);
 
+/**
+ * DELETE /api/v1/internal/users/:userId/data
+ * Hard delete all data for a specific user (Items, BulkJobs, ActivityLogs, OTPs)
+ * Preserves the User record itself
+ * Query params: include_otp (default: true), include_activity_logs (default: true)
+ */
+router.delete('/users/:userId/data', internalController.cleanupUserData);
+
+/**
+ * DELETE /api/v1/internal/users/:userId/items
+ * Hard delete only items for a specific user (preserves BulkJobs, ActivityLogs, OTPs)
+ * Preserves the User record itself
+ */
+router.delete('/users/:userId/items', internalController.cleanupUserItems);
+
 module.exports = router;
 

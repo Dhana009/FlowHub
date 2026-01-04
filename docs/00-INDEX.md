@@ -1,8 +1,8 @@
 # System Contract Documentation
 ## Backend & Frontend Reference for Web Automation
 
-**Version:** 1.1  
-**Last Updated:** 2025-01-04  
+**Version:** 1.3  
+**Last Updated:** 2025-01-05  
 **Source:** Extracted directly from codebase (`flowhub-core/`)
 
 This document captures the **complete system contract** extracted directly from the codebase.
@@ -46,6 +46,7 @@ This documentation is organized by feature into separate files:
 - POST /api/v1/internal/reset
 - POST /api/v1/internal/seed
 - GET /api/v1/internal/otp
+- DELETE /api/v1/internal/users/:userId/data ⭐ **User data cleanup**
 - GET /health
 
 ### 📄 [04-FRONTEND.md](./04-FRONTEND.md)
@@ -113,6 +114,16 @@ This documentation is organized by feature into separate files:
 - Available endpoints summary
 - Implementation checklist
 
+### 📄 [12-TEST-DATA-CLEANUP.md](../flowhub-core/docs/automation/TEST_DATA_CLEANUP.md)
+**Test Data Cleanup & Hard Delete - Complete Answers**
+- Hard delete vs soft delete behavior
+- Bulk delete operations
+- Test data identification methods
+- Cleanup endpoints and strategies
+- Performance considerations
+- Environment-specific behavior
+- Implementation recommendations
+
 ---
 
 ## Quick Reference
@@ -147,6 +158,7 @@ This documentation is organized by feature into separate files:
 - `POST /api/v1/internal/reset` → [03-INTERNAL.md](./03-INTERNAL.md)
 - `POST /api/v1/internal/seed` → [03-INTERNAL.md](./03-INTERNAL.md)
 - `GET /api/v1/internal/otp` → [03-INTERNAL.md](./03-INTERNAL.md)
+- `DELETE /api/v1/internal/users/:userId/data` → [03-INTERNAL.md](./03-INTERNAL.md) ⭐ **User data cleanup**
 - `GET /health` → [03-INTERNAL.md](./03-INTERNAL.md)
 
 ---
@@ -197,7 +209,8 @@ All error responses follow this format:
 ✅ **Validated** - Cross-referenced with actual implementation  
 ✅ **No Assumptions** - Every detail confirmed from source code  
 ✅ **Organized by Feature** - Separate files for easy navigation  
-✅ **Seed Data Management** - New optimized endpoints documented (2025-01-04)
+✅ **Seed Data Management** - New optimized endpoints documented (2025-01-04)  
+✅ **User Data Cleanup** - `DELETE /api/v1/internal/users/:userId/data` endpoint implemented (2025-01-05)
 
 **Next Steps:**
 - Framework design begins only after this document is frozen

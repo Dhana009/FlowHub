@@ -71,9 +71,129 @@ async function seedData(req, res, next) {
   }
 }
 
+/**
+ * DELETE /api/v1/internal/users/:userId/data
+ * Hard delete all data for a specific user (Items, BulkJobs, ActivityLogs, OTPs)
+ * Preserves the User record itself
+ */
+async function cleanupUserData(req, res, next) {
+  try {
+    if (!authorizeInternal(req, res)) return;
+
+    const userId = req.params.userId;
+    const mongoose = require('mongoose');
+
+    // Validate userId format
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request - Invalid ID format',
+        message: 'Invalid user ID format. Expected 24-character hexadecimal string.',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Parse query parameters
+    const include_otp = req.query.include_otp !== 'false'; // Default: true
+    const include_activity_logs = req.query.include_activity_logs !== 'false'; // Default: true
+
+    // Call service
+    const result = await internalService.cleanupUserData(userId, {
+      include_otp,
+      include_activity_logs
+    });
+
+    // Return success response
+    return res.status(200).json({
+      status: 'success',
+      deleted: result,
+      preserved: {
+        user: true
+      }
+    });
+
+  } catch (error) {
+    // Handle known errors
+    if (error.statusCode === 404) {
+      return res.status(404).json({
+        status: 'error',
+        error_code: 404,
+        error_type: 'Not Found',
+        message: error.message || 'User not found',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Handle other errors
+    next(error);
+  }
+}
+
+/**
+ * DELETE /api/v1/internal/users/:userId/items
+ * Hard delete only items for a specific user (preserves BulkJobs, ActivityLogs, OTPs)
+ * Preserves the User record itself
+ */
+async function cleanupUserItems(req, res, next) {
+  try {
+    if (!authorizeInternal(req, res)) return;
+
+    const userId = req.params.userId;
+    const mongoose = require('mongoose');
+
+    // Validate userId format
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request - Invalid ID format',
+        message: 'Invalid user ID format. Expected 24-character hexadecimal string.',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Call service
+    const result = await internalService.cleanupUserItems(userId);
+
+    // Return success response
+    return res.status(200).json({
+      status: 'success',
+      deleted: result,
+      preserved: {
+        user: true,
+        bulk_jobs: true,
+        activity_logs: true,
+        otps: true
+      }
+    });
+
+  } catch (error) {
+    // Handle known errors
+    if (error.statusCode === 404) {
+      return res.status(404).json({
+        status: 'error',
+        error_code: 404,
+        error_type: 'Not Found',
+        message: error.message || 'User not found',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Handle other errors
+    next(error);
+  }
+}
+
 module.exports = {
   resetDB,
   getOTP,
-  seedData
+  seedData,
+  cleanupUserData,
+  cleanupUserItems
 };
 

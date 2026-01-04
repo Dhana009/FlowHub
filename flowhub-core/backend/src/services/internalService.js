@@ -11,6 +11,7 @@ const Item = require('../models/Item');
 const OTP = require('../models/OTP');
 const BulkJob = require('../models/BulkJob');
 const ActivityLog = require('../models/ActivityLog');
+const fileService = require('./fileService');
 
 /**
  * Total Reset: Wipes all collections for a clean test start.
@@ -97,9 +98,364 @@ async function seedItems(userId, count = 10) {
   };
 }
 
+/**
+ * Cleanup all data for a specific user (hard delete)
+ * Deletes Items, BulkJobs, ActivityLogs, OTPs while preserving User record
+ * Also deletes associated files from filesystem
+ * 
+ * @param {string} userId - User ID whose data should be deleted
+ * @param {object} options - Cleanup options
+ * @param {boolean} options.include_otp - Whether to delete OTPs (default: true)
+ * @param {boolean} options.include_activity_logs - Whether to delete activity logs (default: true)
+ * @returns {Promise<object>} Deletion counts
+ * @throws {Error} - If user not found or deletion fails
+ */
+async function cleanupUserData(userId, options = {}) {
+  const { include_otp = true, include_activity_logs = true } = options;
+
+  // Verify user exists
+  const user = await User.findById(userId);
+  if (!user) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Collect file paths before deletion (for file cleanup)
+  const items = await Item.find({ created_by: userId });
+  const filePaths = items
+    .filter(item => item.file_path)
+    .map(item => item.file_path);
+
+  // Start MongoDB transaction for atomicity
+  // Note: If transactions aren't supported (e.g., MongoDB Memory Server), 
+  // we'll execute without transaction (still works, just not atomic)
+  // We try transactions first, and if they fail, we retry without them
+  let session = null;
+  let useTransaction = false;
+
+  // Try to use transactions first (if supported)
+  try {
+    session = await mongoose.startSession();
+    session.startTransaction();
+    useTransaction = true;
+  } catch (error) {
+    // Transactions not supported at session start - proceed without transaction
+    useTransaction = false;
+    if (session) {
+      session.endSession().catch(() => {});
+      session = null;
+    }
+  }
+
+  try {
+    // Delete collections in parallel (with or without transaction)
+    const sessionOption = useTransaction ? { session } : {};
+    
+    const deletePromises = [
+      Item.deleteMany({ created_by: userId }, sessionOption),
+      BulkJob.deleteMany({ userId: userId }, sessionOption)
+    ];
+
+    if (include_activity_logs) {
+      deletePromises.push(ActivityLog.deleteMany({ userId: userId }, sessionOption));
+    }
+
+    if (include_otp) {
+      deletePromises.push(OTP.deleteMany({ email: user.email.toLowerCase() }, sessionOption));
+    }
+
+    // Execute all deletions in parallel
+    const results = await Promise.all(deletePromises);
+
+    // Extract deletion counts (order: items, bulkJobs, activityLogs?, otps?)
+    let resultIndex = 0;
+    const itemsDeleted = results[resultIndex++].deletedCount;
+    const bulkJobsDeleted = results[resultIndex++].deletedCount;
+    const activityLogsDeleted = include_activity_logs ? results[resultIndex++].deletedCount : 0;
+    const otpsDeleted = include_otp ? results[resultIndex++].deletedCount : 0;
+
+    // Commit transaction if used
+    if (useTransaction) {
+      await session.commitTransaction();
+    }
+
+    // Delete files (best-effort, don't fail if file missing)
+    // Only count files that actually existed and were deleted
+    let filesDeleted = 0;
+    for (const filePath of filePaths) {
+      try {
+        const fs = require('fs').promises;
+        const path = require('path');
+        const fullPath = filePath.startsWith('/') || filePath.startsWith('\\') 
+          ? filePath 
+          : path.join(process.cwd(), filePath);
+        
+        // Check if file exists before trying to delete
+        try {
+          await fs.access(fullPath);
+          // File exists, try to delete it
+          await fileService.deleteFile(filePath);
+          filesDeleted++;
+        } catch (accessError) {
+          // File doesn't exist, skip it (don't count)
+          // This is expected for non-existent files
+        }
+      } catch (error) {
+        // Log but don't fail - file might already be deleted
+        console.warn(`Failed to delete file ${filePath}:`, error.message);
+      }
+    }
+
+    return {
+      items: itemsDeleted,
+      files: filesDeleted,
+      bulk_jobs: bulkJobsDeleted,
+      activity_logs: activityLogsDeleted,
+      otps: otpsDeleted
+    };
+
+  } catch (error) {
+    // If transaction error occurs, retry without transaction
+    // This handles cases where transactions aren't supported (e.g., MongoDB Memory Server)
+    const isTransactionError = error.message?.includes('Transaction numbers') || 
+                               error.message?.includes('replica set') ||
+                               error.message?.includes('mongos') ||
+                               (error.name === 'MongoServerError' && error.message?.includes('Transaction'));
+    
+    if (isTransactionError) {
+      // Clean up session
+      if (session) {
+        await session.abortTransaction().catch(() => {});
+        await session.endSession().catch(() => {});
+        session = null;
+      }
+      
+      // Retry without transaction (respecting the same flags)
+      const retryDeletePromises = [
+        Item.deleteMany({ created_by: userId }),
+        BulkJob.deleteMany({ userId: userId })
+      ];
+
+      if (include_activity_logs) {
+        retryDeletePromises.push(ActivityLog.deleteMany({ userId: userId }));
+      }
+
+      if (include_otp) {
+        retryDeletePromises.push(OTP.deleteMany({ email: user.email.toLowerCase() }));
+      }
+
+      const retryResults = await Promise.all(retryDeletePromises);
+
+      // Extract deletion counts from retry
+      let retryResultIndex = 0;
+      const itemsDeleted = retryResults[retryResultIndex++].deletedCount;
+      const bulkJobsDeleted = retryResults[retryResultIndex++].deletedCount;
+      const activityLogsDeleted = include_activity_logs ? retryResults[retryResultIndex++].deletedCount : 0;
+      const otpsDeleted = include_otp ? retryResults[retryResultIndex++].deletedCount : 0;
+
+      // Delete files (best-effort, don't fail if file missing)
+      // Only count files that actually existed and were deleted
+      let filesDeleted = 0;
+      for (const filePath of filePaths) {
+        try {
+          const fs = require('fs').promises;
+          const path = require('path');
+          const fullPath = filePath.startsWith('/') || filePath.startsWith('\\') 
+            ? filePath 
+            : path.join(process.cwd(), filePath);
+          
+          // Check if file exists before trying to delete
+          try {
+            await fs.access(fullPath);
+            // File exists, try to delete it
+            await fileService.deleteFile(filePath);
+            filesDeleted++;
+          } catch (accessError) {
+            // File doesn't exist, skip it (don't count)
+            // This is expected for non-existent files
+          }
+        } catch (fileError) {
+          // Log but don't fail - file might already be deleted
+          console.warn(`Failed to delete file ${filePath}:`, fileError.message);
+        }
+      }
+
+      return {
+        items: itemsDeleted,
+        files: filesDeleted,
+        bulk_jobs: bulkJobsDeleted,
+        activity_logs: activityLogsDeleted,
+        otps: otpsDeleted
+      };
+    }
+    
+    // Rollback transaction on error (if transaction was used)
+    if (useTransaction && session) {
+      await session.abortTransaction().catch(() => {}); // Ignore abort errors
+    }
+    throw error;
+  } finally {
+    // End session if it was created
+    if (session) {
+      session.endSession().catch(() => {}); // Ignore session end errors
+    }
+  }
+}
+
+/**
+ * Cleanup only items for a specific user (hard delete)
+ * Deletes Items and associated files while preserving all other user data
+ * 
+ * @param {string} userId - User ID whose items should be deleted
+ * @returns {Promise<object>} Deletion counts
+ * @throws {Error} - If user not found or deletion fails
+ */
+async function cleanupUserItems(userId) {
+  // Verify user exists
+  const user = await User.findById(userId);
+  if (!user) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Collect file paths before deletion (for file cleanup)
+  const items = await Item.find({ created_by: userId });
+  const filePaths = items
+    .filter(item => item.file_path)
+    .map(item => item.file_path);
+
+  // Start MongoDB transaction for atomicity
+  // Note: If transactions aren't supported (e.g., MongoDB Memory Server), 
+  // we'll execute without transaction (still works, just not atomic)
+  let session = null;
+  let useTransaction = false;
+
+  // Try to use transactions first (if supported)
+  try {
+    session = await mongoose.startSession();
+    session.startTransaction();
+    useTransaction = true;
+  } catch (error) {
+    // Transactions not supported at session start - proceed without transaction
+    useTransaction = false;
+    if (session) {
+      session.endSession().catch(() => {});
+      session = null;
+    }
+  }
+
+  try {
+    // Delete only items (with or without transaction)
+    const sessionOption = useTransaction ? { session } : {};
+    const itemsResult = await Item.deleteMany({ created_by: userId }, sessionOption);
+
+    // Commit transaction if used
+    if (useTransaction) {
+      await session.commitTransaction();
+    }
+
+    // Delete files (best-effort, don't fail if file missing)
+    // Only count files that actually existed and were deleted
+    let filesDeleted = 0;
+    for (const filePath of filePaths) {
+      try {
+        const fs = require('fs').promises;
+        const path = require('path');
+        const fullPath = filePath.startsWith('/') || filePath.startsWith('\\') 
+          ? filePath 
+          : path.join(process.cwd(), filePath);
+        
+        // Check if file exists before trying to delete
+        try {
+          await fs.access(fullPath);
+          // File exists, try to delete it
+          await fileService.deleteFile(filePath);
+          filesDeleted++;
+        } catch (accessError) {
+          // File doesn't exist, skip it (don't count)
+          // This is expected for non-existent files
+        }
+      } catch (error) {
+        // Log but don't fail - file might already be deleted
+        console.warn(`Failed to delete file ${filePath}:`, error.message);
+      }
+    }
+
+    return {
+      items: itemsResult.deletedCount,
+      files: filesDeleted
+    };
+
+  } catch (error) {
+    // If transaction error occurs, retry without transaction
+    // This handles cases where transactions aren't supported (e.g., MongoDB Memory Server)
+    const isTransactionError = error.message?.includes('Transaction numbers') || 
+                               error.message?.includes('replica set') ||
+                               error.message?.includes('mongos') ||
+                               (error.name === 'MongoServerError' && error.message?.includes('Transaction'));
+    
+    if (isTransactionError) {
+      // Clean up session
+      if (session) {
+        await session.abortTransaction().catch(() => {});
+        await session.endSession().catch(() => {});
+        session = null;
+      }
+      
+      // Retry without transaction
+      const itemsResult = await Item.deleteMany({ created_by: userId });
+
+      // Delete files
+      let filesDeleted = 0;
+      for (const filePath of filePaths) {
+        try {
+          const fs = require('fs').promises;
+          const path = require('path');
+          const fullPath = filePath.startsWith('/') || filePath.startsWith('\\') 
+            ? filePath 
+            : path.join(process.cwd(), filePath);
+          
+          // Check if file exists before trying to delete
+          try {
+            await fs.access(fullPath);
+            // File exists, try to delete it
+            await fileService.deleteFile(filePath);
+            filesDeleted++;
+          } catch (accessError) {
+            // File doesn't exist, skip it (don't count)
+          }
+        } catch (fileError) {
+          // Log but don't fail
+          console.warn(`Failed to delete file ${filePath}:`, fileError.message);
+        }
+      }
+
+      return {
+        items: itemsResult.deletedCount,
+        files: filesDeleted
+      };
+    }
+    
+    // Rollback transaction on error (if transaction was used)
+    if (useTransaction && session) {
+      await session.abortTransaction().catch(() => {}); // Ignore abort errors
+    }
+    throw error;
+  } finally {
+    // End session if it was created
+    if (session) {
+      session.endSession().catch(() => {}); // Ignore session end errors
+    }
+  }
+}
+
 module.exports = {
   resetDatabase,
   getLatestOTP,
-  seedItems
+  seedItems,
+  cleanupUserData,
+  cleanupUserItems
 };
 

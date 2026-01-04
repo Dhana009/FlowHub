@@ -3,9 +3,10 @@
 **Purpose:** Guidelines for test data creation, management, and cleanup  
 **Use Case:** Setting up test environments, parallel test execution, data isolation
 
-**📚 For comprehensive seed data management, see:**
+**📚 For comprehensive documentation, see:**
 - **[SEED_DATA_MANAGEMENT.md](./SEED_DATA_MANAGEMENT.md)** - Complete guide with all endpoints and answers
 - **[SEED_DATA_AGENT_INSTRUCTIONS.md](./SEED_DATA_AGENT_INSTRUCTIONS.md)** - Quick reference for agents
+- **[TEST_DATA_CLEANUP.md](./TEST_DATA_CLEANUP.md)** - Test data cleanup & hard delete answers
 
 ---
 
@@ -324,23 +325,42 @@ X-Internal-Key: flowhub-secret-automation-key-2025
 
 ## **9. Data Cleanup After Tests**
 
+**📚 For complete cleanup documentation, see: [TEST_DATA_CLEANUP.md](./TEST_DATA_CLEANUP.md)**
+
 ### **Option 1: Reset Database (Recommended for CI/CD)**
 ```http
 POST /api/v1/internal/reset
 X-Internal-Key: flowhub-secret-automation-key-2025
 ```
-**Pros:** Complete cleanup, fast  
-**Cons:** Removes all data (including admin user if not recreated)
+**Pros:** Complete cleanup, fast, hard delete (removes from database)  
+**Cons:** Removes all data (including admin user if not recreated)  
+**Type:** Hard delete (permanent removal)
 
 ### **Option 2: Soft Delete Items**
 ```http
 DELETE /api/v1/items/:id
 Authorization: Bearer {token}
 ```
-**Pros:** Preserves data for debugging  
-**Cons:** Items remain in database (soft-deleted)
+**Pros:** Preserves data for debugging, can be restored  
+**Cons:** Items remain in database (soft-deleted, `is_active: false`)  
+**Type:** Soft delete (marks as inactive)
 
-### **Option 3: Deactivate Users**
+**Note:** `DELETE /api/v1/items/:id` performs **soft delete** (not hard delete). Items are marked as `is_active: false` and `deleted_at` is set, but they remain in the database.
+
+### **Option 3: Bulk Delete (Soft Delete)**
+```http
+POST /api/v1/bulk-operations
+Authorization: Bearer {token}
+{
+  "operation": "delete",
+  "itemIds": ["id1", "id2", ...]
+}
+```
+**Pros:** Delete multiple items at once  
+**Cons:** Soft delete (items remain in database), async processing  
+**Type:** Soft delete (marks as inactive)
+
+### **Option 4: Deactivate Users**
 ```http
 PATCH /api/v1/users/:id/status
 Authorization: Bearer {admin_token}
@@ -348,6 +368,8 @@ Authorization: Bearer {admin_token}
 ```
 **Pros:** Preserves user data  
 **Cons:** Users remain in database
+
+**⚠️ Important:** There is **NO hard delete endpoint** for individual items. Use `POST /api/v1/internal/reset` for permanent deletion (test environments only).
 
 ---
 
