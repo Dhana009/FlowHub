@@ -3,6 +3,10 @@
 **Purpose:** Guidelines for test data creation, management, and cleanup  
 **Use Case:** Setting up test environments, parallel test execution, data isolation
 
+**📚 For comprehensive seed data management, see:**
+- **[SEED_DATA_MANAGEMENT.md](./SEED_DATA_MANAGEMENT.md)** - Complete guide with all endpoints and answers
+- **[SEED_DATA_AGENT_INSTRUCTIONS.md](./SEED_DATA_AGENT_INSTRUCTIONS.md)** - Quick reference for agents
+
 ---
 
 ## **1. Test Data Creation Methods**
@@ -40,7 +44,7 @@ X-Internal-Key: flowhub-secret-automation-key-2025
 ```
 Response: `{ "status": "success", "data": { "otp": "123456" } }`
 
-**Seed Test Items:**
+**Seed Test Items (Legacy - Use batch endpoint instead):**
 ```http
 POST /api/v1/internal/seed
 X-Internal-Key: flowhub-secret-automation-key-2025
@@ -51,6 +55,53 @@ Content-Type: application/json
   "count": 50
 }
 ```
+
+**⚠️ Recommended: Use optimized seed data endpoints instead:**
+- `GET /api/v1/items/seed-status/:userId` - Verify seed completion (fast)
+- `POST /api/v1/items/batch` - Batch create seed items (idempotent)
+- See [SEED_DATA_MANAGEMENT.md](./SEED_DATA_MANAGEMENT.md) for details
+
+---
+
+## **1.5. Seed Data Management (NEW - Recommended)**
+
+**For efficient seed data verification and creation, use the new optimized endpoints:**
+
+### **Quick Start:**
+```javascript
+// 1. Verify seed exists (single API call, < 100ms)
+const status = await GET('/api/v1/items/seed-status/:userId?seed_version=v1.0');
+if (status.seed_complete) {
+  // Seed ready
+  return;
+}
+
+// 2. Create missing seed items (batch, idempotent)
+await POST('/api/v1/items/batch', {
+  items: seedItems.map(item => ({
+    ...item,
+    tags: ['seed', 'v1.0']  // Required: tag as seed data
+  })),
+  skip_existing: true  // Prevents 409 errors
+});
+```
+
+### **Available Endpoints:**
+- **`GET /api/v1/items/seed-status/:userId`** - Check seed completion (fast count query)
+- **`POST /api/v1/items/batch`** - Batch create items (up to 50 items, idempotent)
+- **`GET /api/v1/items/count`** - Count items with filters
+- **`POST /api/v1/items/check-exists`** - Batch check if items exist by name/category
+
+### **Complete Documentation:**
+- **[SEED_DATA_MANAGEMENT.md](./SEED_DATA_MANAGEMENT.md)** - Complete guide with all answers
+- **[SEED_DATA_AGENT_INSTRUCTIONS.md](./SEED_DATA_AGENT_INSTRUCTIONS.md)** - Quick reference for agents
+
+**Benefits:**
+- ✅ Single API call to verify seed (vs fetching all items)
+- ✅ Batch creation (faster than sequential)
+- ✅ Idempotent (safe to retry, handles duplicates)
+- ✅ Version support (schema migration ready)
+- ✅ Fast performance (even with 10,000+ items in DB)
 
 ---
 

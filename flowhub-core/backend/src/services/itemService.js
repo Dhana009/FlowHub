@@ -356,6 +356,268 @@ async function getItems(filters = {}, userId = null, role = null) {
 }
 
 /**
+ * Create items in batch
+ * Reuses createItem() function to ensure all validation layers apply
+ * 
+ * @param {array} items - Array of item data objects
+ * @param {boolean} skipExisting - If true, skip items that already exist (409 conflict)
+ * @param {string} userId - User ID creating the items
+ * @returns {Promise<object>} Batch creation result with counts and details
+ */
+async function createItemsBatch(items, skipExisting, userId) {
+  let created = 0;
+  let skipped = 0;
+  let failed = 0;
+  const results = [];
+  const errors = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const itemData = items[i];
+    
+    try {
+      // Reuse existing createItem function (all validation layers apply)
+      const createdItem = await createItem(itemData, null, userId); // No file upload in batch
+      
+      created++;
+      results.push({
+        index: i,
+        name: itemData.name || 'Unknown',
+        status: 'created',
+        item_id: createdItem._id.toString()
+      });
+    } catch (error) {
+      // Handle 409 conflict (duplicate item)
+      if (error.statusCode === 409 || error.code === 11000) {
+        if (skipExisting) {
+          skipped++;
+          results.push({
+            index: i,
+            name: itemData.name || 'Unknown',
+            status: 'skipped',
+            item_id: null,
+            reason: 'Item already exists'
+          });
+        } else {
+          failed++;
+          results.push({
+            index: i,
+            name: itemData.name || 'Unknown',
+            status: 'failed',
+            item_id: null,
+            reason: 'Item already exists'
+          });
+          errors.push({
+            index: i,
+            name: itemData.name || 'Unknown',
+            error: error.message || 'Duplicate item detected'
+          });
+        }
+      } else {
+        // Handle other errors
+        failed++;
+        results.push({
+          index: i,
+          name: itemData.name || 'Unknown',
+          status: 'failed',
+          item_id: null,
+          reason: error.message || 'Validation or creation failed'
+        });
+        errors.push({
+          index: i,
+          name: itemData.name || 'Unknown',
+          error: error.message || 'Unknown error',
+          error_code: error.statusCode || 500
+        });
+      }
+    }
+  }
+
+  return {
+    created,
+    skipped,
+    failed,
+    results,
+    errors
+  };
+}
+
+/**
+ * Get seed status for a user
+ * Checks if user has required seed items (identified by tags)
+ * 
+ * @param {string} userId - User ID to check seed status for
+ * @param {string} seedVersion - Optional seed version identifier
+ * @param {string} role - User role (optional, for ADMIN bypass)
+ * @returns {Promise<object>} Seed status result
+ */
+async function getSeedStatus(userId, seedVersion, role) {
+  const User = require('../models/User');
+  
+  // Verify user exists
+  const user = await User.findById(userId);
+  if (!user) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Build query
+  const query = {};
+
+  // CRITICAL: RBAC check - Only ADMIN and VIEWER can check other users' seed status
+  // EDITOR can only check their own seed status
+  // For now, we allow checking any user's seed status if authenticated
+  // (The controller should enforce additional RBAC if needed)
+  
+  // Filter by created_by for the target user
+  query.created_by = userId;
+
+  // Filter by active items only
+  query.is_active = true;
+
+  // Filter by tags if seedVersion provided
+  if (seedVersion) {
+    // Items must have both 'seed' and the version tag
+    query.tags = { $all: ['seed', seedVersion] };
+  } else {
+    // Default: check for items with 'seed' tag
+    query.tags = { $in: ['seed'] };
+  }
+
+  // Count total items for user
+  const totalItems = await Item.countDocuments(query);
+
+  // Expected seed count (hardcoded to 11 as per plan)
+  const requiredCount = 11;
+
+  // Determine if seed is complete
+  const seedComplete = totalItems >= requiredCount;
+
+  // Missing items: Return empty array (can be enhanced later with name-based matching)
+  const missingItems = [];
+
+  return {
+    seed_complete: seedComplete,
+    total_items: totalItems,
+    required_count: requiredCount,
+    missing_items: missingItems,
+    seed_version: seedVersion || null
+  };
+}
+
+/**
+ * Check if items exist by name and category
+ * Uses normalized fields for matching (same as duplicate detection)
+ * 
+ * @param {array} items - Array of { name, category } objects
+ * @param {string} userId - User ID (required for data isolation)
+ * @param {string} role - User role (optional, for ADMIN bypass)
+ * @returns {Promise<array>} Array of { name, category, exists, item_id } objects
+ */
+async function checkItemsExist(items, userId, role) {
+  const results = [];
+
+  for (const item of items) {
+    // Normalize name (same logic as createItem)
+    const normalizedName = item.name.toLowerCase().trim();
+    
+    // Normalize category (same logic as createItem)
+    const normalizedCategory = categoryService.normalizeCategory(item.category);
+
+    // Build query with RBAC filtering
+    const query = {
+      normalizedName: normalizedName,
+      normalizedCategory: normalizedCategory,
+      is_active: true // Only check active items
+    };
+
+    // CRITICAL: Filter by user ownership for data isolation
+    // ADMIN and VIEWER can see all items (VIEWER is read-only)
+    // Only EDITOR is restricted to their own items
+    if (userId && role !== 'ADMIN' && role !== 'VIEWER') {
+      query.created_by = userId;
+    }
+
+    // Query for item (only fetch _id for performance)
+    const existingItem = await Item.findOne(query, { _id: 1 }).lean();
+
+    results.push({
+      name: item.name,
+      category: item.category,
+      exists: !!existingItem,
+      item_id: existingItem ? existingItem._id.toString() : null
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Get count of items with search, filter
+ * Reuses query building logic from getItems() for consistency
+ * 
+ * @param {object} filters - Filter options
+ * @param {string} filters.search - Search query
+ * @param {string} filters.status - Status filter (active/inactive)
+ * @param {string} filters.category - Category filter
+ * @param {string} userId - User ID (required for data isolation)
+ * @param {string} role - User role (optional, for ADMIN bypass)
+ * @returns {Promise<object>} Count result
+ */
+async function getItemCount(filters = {}, userId = null, role = null) {
+  const {
+    search,
+    status,
+    category
+  } = filters;
+
+  // Build query (reuse exact same logic as getItems)
+  const query = {};
+
+  // CRITICAL: Filter by user ownership for data isolation
+  // ADMIN and VIEWER can see all items (VIEWER is read-only)
+  // Only EDITOR is restricted to their own items
+  if (userId && role !== 'ADMIN' && role !== 'VIEWER') {
+    query.created_by = userId;
+  }
+
+  // Status filter
+  if (status === 'active') {
+    query.is_active = true;
+  } else if (status === 'inactive') {
+    query.is_active = false;
+  }
+  // If status is 'all' or not provided, no filter applied
+
+  // Category filter
+  if (category && category.trim()) {
+    const normalizedCategory = categoryService.normalizeCategory(category);
+    query.normalizedCategory = normalizedCategory;
+  }
+
+  // Search filter
+  const normalizedSearch = normalizeSearchQuery(search);
+  if (normalizedSearch) {
+    // Escape regex special characters
+    const escapedSearch = escapeRegex(normalizedSearch);
+    const originalSearch = search.trim();
+    const escapedOriginal = escapeRegex(originalSearch);
+    
+    query.$or = [
+      { normalizedName: { $regex: escapedSearch, $options: 'i' } },
+      { description: { $exists: true, $regex: escapedOriginal, $options: 'i' } }
+    ];
+  }
+
+  // Execute count query
+  const count = await Item.countDocuments(query);
+
+  return {
+    count
+  };
+}
+
+/**
  * Update an existing item
  * 
  * @param {string} itemId - Item ID
@@ -777,6 +1039,10 @@ module.exports = {
   getItemById,
   getItemsByUser,
   getItems,
+  getItemCount,
+  checkItemsExist,
+  createItemsBatch,
+  getSeedStatus,
   updateItem,
   deleteItem,
   deleteFile,

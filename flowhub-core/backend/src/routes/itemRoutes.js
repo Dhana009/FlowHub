@@ -27,12 +27,46 @@ router.post(
 );
 
 /**
+ * POST /api/v1/items/check-exists
+ * Check if multiple items exist by name and category
+ * Requires authentication
+ * Roles: ADMIN, EDITOR, VIEWER
+ */
+router.post('/check-exists', verifyToken, authorize(['ADMIN', 'EDITOR', 'VIEWER']), itemController.checkItemsExist);
+
+/**
+ * POST /api/v1/items/batch
+ * Create multiple items in one request
+ * Requires authentication
+ * Roles: ADMIN, EDITOR
+ * Note: Does not support file uploads
+ */
+router.post('/batch', verifyToken, authorize(['ADMIN', 'EDITOR']), itemController.createItemsBatch);
+
+/**
  * GET /api/v1/items
  * Get all items with search, filter, sort, and pagination
  * Requires authentication (Flow 3)
  * Roles: ADMIN, EDITOR, VIEWER
  */
 router.get('/', verifyToken, authorize(['ADMIN', 'EDITOR', 'VIEWER']), itemController.getItems);
+
+/**
+ * GET /api/v1/items/count
+ * Get count of items without fetching items
+ * Requires authentication
+ * Roles: ADMIN, EDITOR, VIEWER
+ */
+router.get('/count', verifyToken, authorize(['ADMIN', 'EDITOR', 'VIEWER']), itemController.getItemCount);
+
+/**
+ * GET /api/v1/items/seed-status/:userId
+ * Get seed data status for a user
+ * Requires authentication
+ * Roles: ADMIN, EDITOR, VIEWER
+ * NOTE: Must be defined BEFORE /:id route to avoid route matching conflicts
+ */
+router.get('/seed-status/:userId', verifyToken, authorize(['ADMIN', 'EDITOR', 'VIEWER']), itemController.getSeedStatus);
 
 /**
  * PATCH /api/v1/items/:id/activate

@@ -152,7 +152,7 @@ function extractItemData(body) {
     };
   }
 
-  return {
+  const extracted = {
     name: body.name,
     description: body.description,
     item_type: body.item_type,
@@ -168,6 +168,8 @@ function extractItemData(body) {
     // Optional fields
     embed_url: body.embed_url || undefined
   };
+  
+  return extracted;
 }
 
 /**
@@ -761,9 +763,399 @@ async function activateItem(req, res, next) {
   }
 }
 
+/**
+ * Create items in batch
+ * POST /api/v1/items/batch
+ * 
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @param {function} next - Express next function
+ */
+async function createItemsBatch(req, res, next) {
+  try {
+    // Get user ID from authenticated request (set by authMiddleware)
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication required',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Validate request body
+    if (!req.body || !req.body.items || !Array.isArray(req.body.items)) {
+      return res.status(400).json({
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: 'Request body must contain an "items" array',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Validate array length (max 50 items to prevent abuse)
+    if (req.body.items.length > 50) {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity - Validation error',
+        message: 'Maximum 50 items allowed per batch request',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Validate skip_existing flag
+    const skipExisting = req.body.skip_existing === true;
+
+    // Extract item data for each item (same as single create endpoint)
+    // This converts length/width/height to dimensions object, parses tags, etc.
+    const extractedItems = req.body.items.map(item => extractItemData(item));
+
+    // Process batch via service
+    const result = await itemService.createItemsBatch(extractedItems, skipExisting, userId);
+
+    // Return success response
+    return res.status(200).json({
+      status: 'success',
+      created: result.created,
+      skipped: result.skipped,
+      failed: result.failed,
+      results: result.results,
+      errors: result.errors
+    });
+
+  } catch (error) {
+    // Handle authentication errors silently for auto-refresh
+    if (error.statusCode === 401 && req.headers['x-auto-refresh'] === 'true') {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication expired',
+        silent: true
+      });
+    }
+
+    // Handle other errors
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        status: 'error',
+        error_code: error.statusCode,
+        error_type: getErrorType(error.statusCode),
+        message: error.message || getDefaultErrorMessage(error.statusCode),
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Generic error
+    next(error);
+  }
+}
+
+/**
+ * Check if items exist
+ * POST /api/v1/items/check-exists
+ * 
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @param {function} next - Express next function
+ */
+async function checkItemsExist(req, res, next) {
+  try {
+    // Get user ID from authenticated request (set by authMiddleware)
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication required',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Validate request body
+    if (!req.body || !req.body.items || !Array.isArray(req.body.items)) {
+      return res.status(400).json({
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: 'Request body must contain an "items" array',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Validate array length (max 100 items to prevent abuse)
+    if (req.body.items.length > 100) {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity - Validation error',
+        message: 'Maximum 100 items allowed per request',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Validate each item has required fields
+    for (let i = 0; i < req.body.items.length; i++) {
+      const item = req.body.items[i];
+      if (!item.name || typeof item.name !== 'string' || item.name.trim() === '') {
+        return res.status(422).json({
+          status: 'error',
+          error_code: 422,
+          error_type: 'Unprocessable Entity - Validation error',
+          message: `Item at index ${i} must have a non-empty "name" field`,
+          timestamp: new Date().toISOString(),
+          path: req.path
+        });
+      }
+      if (!item.category || typeof item.category !== 'string' || item.category.trim() === '') {
+        return res.status(422).json({
+          status: 'error',
+          error_code: 422,
+          error_type: 'Unprocessable Entity - Validation error',
+          message: `Item at index ${i} must have a non-empty "category" field`,
+          timestamp: new Date().toISOString(),
+          path: req.path
+        });
+      }
+    }
+
+    // Check items existence via service
+    const results = await itemService.checkItemsExist(req.body.items, userId, req.user.role);
+
+    // Calculate missing count
+    const missingCount = results.filter(r => !r.exists).length;
+
+    // Return success response
+    return res.status(200).json({
+      status: 'success',
+      results: results,
+      missing_count: missingCount
+    });
+
+  } catch (error) {
+    // Handle authentication errors silently for auto-refresh
+    if (error.statusCode === 401 && req.headers['x-auto-refresh'] === 'true') {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication expired',
+        silent: true
+      });
+    }
+
+    // Handle other errors
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        status: 'error',
+        error_code: error.statusCode,
+        error_type: getErrorType(error.statusCode),
+        message: error.message || getDefaultErrorMessage(error.statusCode),
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Generic error
+    next(error);
+  }
+}
+
+/**
+ * Get seed status for a user
+ * GET /api/v1/items/seed-status/:userId
+ * 
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @param {function} next - Express next function
+ */
+async function getSeedStatus(req, res, next) {
+  try {
+    // Get user ID from authenticated request (set by authMiddleware)
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication required',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Extract userId from params
+    const targetUserId = req.params.userId;
+    
+    // Validate userId format (ObjectId)
+    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request - Invalid ID format',
+        message: 'Invalid user ID format. Expected 24-character hexadecimal string.',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Extract seed_version from query (optional)
+    const seedVersion = req.query.seed_version || null;
+
+    // Get seed status from service
+    const result = await itemService.getSeedStatus(targetUserId, seedVersion, req.user.role);
+
+    // Return success response
+    return res.status(200).json({
+      status: 'success',
+      seed_complete: result.seed_complete,
+      total_items: result.total_items,
+      required_count: result.required_count,
+      missing_items: result.missing_items,
+      seed_version: result.seed_version
+    });
+
+  } catch (error) {
+    // Handle authentication errors silently for auto-refresh
+    if (error.statusCode === 401 && req.headers['x-auto-refresh'] === 'true') {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication expired',
+        silent: true
+      });
+    }
+
+    // Handle other errors
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        status: 'error',
+        error_code: error.statusCode,
+        error_type: getErrorType(error.statusCode),
+        message: error.message || getDefaultErrorMessage(error.statusCode),
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Generic error
+    next(error);
+  }
+}
+
+/**
+ * Get count of items
+ * GET /api/v1/items/count
+ * 
+ * @param {object} req - Express request
+ * @param {object} res - Express response
+ * @param {function} next - Express next function
+ */
+async function getItemCount(req, res, next) {
+  try {
+    // Get user ID from authenticated request (set by authMiddleware)
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication required',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Parse and validate query parameters (same validation as getItems)
+    const search = req.query.search || null;
+    const status = req.query.status && ['active', 'inactive'].includes(req.query.status) 
+      ? req.query.status 
+      : null;
+    
+    // Reject invalid status values
+    if (req.query.status && !['active', 'inactive'].includes(req.query.status)) {
+      return res.status(422).json({
+        status: 'error',
+        error_code: 422,
+        error_type: 'Unprocessable Entity - Invalid query parameter',
+        message: `status must be "active" or "inactive", got "${req.query.status}"`,
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+    
+    const category = req.query.category || null;
+
+    // Build filters object
+    const filters = {
+      search,
+      status,
+      category
+    };
+
+    // Get count from service - pass userId and role for data isolation
+    const result = await itemService.getItemCount(filters, userId, req.user.role);
+
+    // Return success response
+    return res.status(200).json({
+      status: 'success',
+      count: result.count,
+      filters: {
+        status: status || null,
+        category: category || null,
+        search: search || null
+      }
+    });
+
+  } catch (error) {
+    // Handle authentication errors silently for auto-refresh
+    if (error.statusCode === 401 && req.headers['x-auto-refresh'] === 'true') {
+      return res.status(401).json({
+        status: 'error',
+        error_code: 401,
+        error_type: 'Unauthorized',
+        message: 'Authentication expired',
+        silent: true
+      });
+    }
+
+    // Handle other errors
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        status: 'error',
+        error_code: error.statusCode,
+        error_type: getErrorType(error.statusCode),
+        message: error.message || getDefaultErrorMessage(error.statusCode),
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Generic error
+    next(error);
+  }
+}
+
 module.exports = {
   createItem,
   getItems,
+  getItemCount,
+  checkItemsExist,
+  createItemsBatch,
+  getSeedStatus,
   getItem,
   updateItem,
   deleteItem,

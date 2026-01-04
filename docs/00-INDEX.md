@@ -1,8 +1,8 @@
 # System Contract Documentation
 ## Backend & Frontend Reference for Web Automation
 
-**Version:** 1.0  
-**Last Updated:** 2024-12-17  
+**Version:** 1.1  
+**Last Updated:** 2025-01-04  
 **Source:** Extracted directly from codebase (`flowhub-core/`)
 
 This document captures the **complete system contract** extracted directly from the codebase.
@@ -63,6 +63,56 @@ This documentation is organized by feature into separate files:
 - Test data identification methods
 - Minimal valid payload examples
 
+### 📄 [06-REMAINING-QUESTIONS.md](./06-REMAINING-QUESTIONS.md)
+**Framework Design Questions - Answered**
+- Refresh token race conditions & rotation
+- Bulk operations completion guarantees
+- Internal reset vs DB reset preference
+- Soft-deleted items visibility rules
+- Iframe instability expectations
+- User deactivation edge cases
+
+### 📄 [07-FLOW2-UI-SELECTORS.md](./07-FLOW2-UI-SELECTORS.md)
+**Flow 2: Create Item - UI Selectors Reference**
+- Complete locator guide for Create Item page
+- All `data-testid` attributes and CSS selectors
+- Conditional fields (PHYSICAL, DIGITAL, SERVICE)
+- File upload selectors
+- Success/error handling verification
+
+### 📄 [08-FLOW3-UI-SELECTORS.md](./08-FLOW3-UI-SELECTORS.md)
+**Flow 3: Search & Discovery - UI Selectors Reference**
+- Complete locator guide for Items page
+- Search, filter, sort, pagination selectors
+- Table rows and cell selectors
+- Deterministic wait attributes
+- Backend API query parameters
+- Auto-refresh behavior
+
+### 📄 [09-BACKEND-QA-FLOW3.md](./09-BACKEND-QA-FLOW3.md)
+**Backend Q&A - Flow 3 Testing Issues**
+- Category-item type compatibility rules
+- RBAC filtering behavior (who sees what)
+- Category normalization and validation
+- Default pagination values
+- Seed data creation fixes
+
+### 📄 [10-SEED-DATA-MANAGEMENT.md](../flowhub-core/docs/automation/SEED_DATA_MANAGEMENT.md)
+**Complete Seed Data Management Guide**
+- Answers to all 7 categories of seed data questions
+- Endpoint documentation with request/response schemas
+- Performance optimization strategies
+- Version management and schema migration
+- Implementation examples and best practices
+
+### 📄 [11-SEED-DATA-AGENT-INSTRUCTIONS.md](../flowhub-core/docs/automation/SEED_DATA_AGENT_INSTRUCTIONS.md)
+**Quick Reference for Test Automation Agents**
+- Recommended approach for seed data verification
+- Step-by-step implementation guide
+- Key concepts (identification, versioning, idempotency)
+- Available endpoints summary
+- Implementation checklist
+
 ---
 
 ## Quick Reference
@@ -88,6 +138,10 @@ This documentation is organized by feature into separate files:
 - `PUT /api/v1/items/:id` → [02-ITEMS.md](./02-ITEMS.md)
 - `DELETE /api/v1/items/:id` → [02-ITEMS.md](./02-ITEMS.md)
 - `PATCH /api/v1/items/:id/activate` → [02-ITEMS.md](./02-ITEMS.md)
+- `GET /api/v1/items/count` → [10-SEED-DATA-MANAGEMENT.md](../flowhub-core/docs/automation/SEED_DATA_MANAGEMENT.md) ⭐ **New**
+- `POST /api/v1/items/check-exists` → [10-SEED-DATA-MANAGEMENT.md](../flowhub-core/docs/automation/SEED_DATA_MANAGEMENT.md) ⭐ **New**
+- `POST /api/v1/items/batch` → [10-SEED-DATA-MANAGEMENT.md](../flowhub-core/docs/automation/SEED_DATA_MANAGEMENT.md) ⭐ **New**
+- `GET /api/v1/items/seed-status/:userId` → [10-SEED-DATA-MANAGEMENT.md](../flowhub-core/docs/automation/SEED_DATA_MANAGEMENT.md) ⭐ **New**
 
 **Internal/Automation:**
 - `POST /api/v1/internal/reset` → [03-INTERNAL.md](./03-INTERNAL.md)
@@ -142,12 +196,15 @@ All error responses follow this format:
 ✅ **Complete** - All information extracted from codebase  
 ✅ **Validated** - Cross-referenced with actual implementation  
 ✅ **No Assumptions** - Every detail confirmed from source code  
-✅ **Organized by Feature** - Separate files for easy navigation
+✅ **Organized by Feature** - Separate files for easy navigation  
+✅ **Seed Data Management** - New optimized endpoints documented (2025-01-04)
 
 **Next Steps:**
 - Framework design begins only after this document is frozen
 - Any behavior outside this contract is a product or environment issue
 - This document represents **Layer 1 (System Discovery)**
+- ✅ **All remaining questions answered** - See [06-REMAINING-QUESTIONS.md](./06-REMAINING-QUESTIONS.md)
+- ✅ **Seed data questions answered** - See [10-SEED-DATA-MANAGEMENT.md](../flowhub-core/docs/automation/SEED_DATA_MANAGEMENT.md)
 
 ---
 
