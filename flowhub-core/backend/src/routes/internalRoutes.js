@@ -42,5 +42,12 @@ router.delete('/users/:userId/data', internalController.cleanupUserData);
  */
 router.delete('/users/:userId/items', internalController.cleanupUserItems);
 
+/**
+ * DELETE /api/v1/internal/items/:id/permanent
+ * Hard delete a single item by ID (removes from MongoDB)
+ * Also deletes associated file from filesystem
+ */
+router.delete('/items/:id/permanent', internalController.hardDeleteItem);
+
 module.exports = router;
 

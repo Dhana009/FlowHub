@@ -189,11 +189,75 @@ async function cleanupUserItems(req, res, next) {
   }
 }
 
+/**
+ * DELETE /api/v1/internal/items/:id/permanent
+ * Hard delete a single item by ID (removes from MongoDB)
+ * Also deletes associated file from filesystem
+ */
+async function hardDeleteItem(req, res, next) {
+  try {
+    if (!authorizeInternal(req, res)) return;
+
+    const itemId = req.params.id;
+    const mongoose = require('mongoose');
+
+    // Validate itemId format
+    if (!mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request - Invalid ID format',
+        message: 'Invalid item ID format. Expected 24-character hexadecimal string.',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Call service
+    const result = await internalService.hardDeleteItem(itemId);
+
+    // Return success response
+    return res.status(200).json({
+      status: 'success',
+      message: 'Item permanently deleted',
+      deleted: result
+    });
+
+  } catch (error) {
+    // Handle known errors
+    if (error.statusCode === 404) {
+      return res.status(404).json({
+        status: 'error',
+        error_code: 404,
+        error_type: 'Not Found',
+        message: error.message || 'Item not found',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    if (error.statusCode === 400) {
+      return res.status(400).json({
+        status: 'error',
+        error_code: 400,
+        error_type: 'Bad Request',
+        message: error.message || 'Invalid request',
+        timestamp: new Date().toISOString(),
+        path: req.path
+      });
+    }
+
+    // Handle other errors
+    next(error);
+  }
+}
+
 module.exports = {
   resetDB,
   getOTP,
   seedData,
   cleanupUserData,
-  cleanupUserItems
+  cleanupUserItems,
+  hardDeleteItem
 };
 

@@ -451,11 +451,179 @@ async function cleanupUserItems(userId) {
   }
 }
 
+/**
+ * Hard delete a single item by ID
+ * Deletes the item and associated file from filesystem
+ * 
+ * @param {string} itemId - Item ID to delete
+ * @returns {Promise<object>} Deletion result with counts
+ * @throws {Error} - If item not found or deletion fails
+ */
+async function hardDeleteItem(itemId) {
+  const mongoose = require('mongoose');
+  
+  // Validate itemId format
+  if (!mongoose.Types.ObjectId.isValid(itemId)) {
+    const error = new Error('Invalid item ID format');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Find the item first to get file_path
+  const item = await Item.findById(itemId);
+  if (!item) {
+    const error = new Error('Item not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Collect file path before deletion
+  const filePath = item.file_path;
+
+  // Start MongoDB transaction for atomicity
+  // Note: If transactions aren't supported (e.g., MongoDB Memory Server), 
+  // we'll execute without transaction (still works, just not atomic)
+  let session = null;
+  let useTransaction = false;
+
+  // Try to use transactions first (if supported)
+  try {
+    session = await mongoose.startSession();
+    session.startTransaction();
+    useTransaction = true;
+  } catch (error) {
+    // Transactions not supported at session start - proceed without transaction
+    useTransaction = false;
+    if (session) {
+      session.endSession().catch(() => {});
+      session = null;
+    }
+  }
+
+  try {
+    // Delete the item (with or without transaction)
+    const sessionOption = useTransaction ? { session } : {};
+    const deleteResult = await Item.deleteOne({ _id: itemId }, sessionOption);
+
+    if (deleteResult.deletedCount === 0) {
+      // Item was deleted between find and delete (race condition)
+      const error = new Error('Item not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Commit transaction if used
+    if (useTransaction) {
+      await session.commitTransaction();
+    }
+
+    // Delete file (best-effort, don't fail if file missing)
+    // Only count files that actually existed and were deleted
+    let filesDeleted = 0;
+    if (filePath) {
+      try {
+        const fs = require('fs').promises;
+        const path = require('path');
+        const fullPath = filePath.startsWith('/') || filePath.startsWith('\\') 
+          ? filePath 
+          : path.join(process.cwd(), filePath);
+        
+        // Check if file exists before trying to delete
+        try {
+          await fs.access(fullPath);
+          // File exists, try to delete it
+          await fileService.deleteFile(filePath);
+          filesDeleted = 1;
+        } catch (accessError) {
+          // File doesn't exist, skip it (don't count)
+          // This is expected for non-existent files
+        }
+      } catch (error) {
+        // Log but don't fail - file might already be deleted
+        console.warn(`Failed to delete file ${filePath}:`, error.message);
+      }
+    }
+
+    return {
+      item_deleted: true,
+      files_deleted: filesDeleted
+    };
+
+  } catch (error) {
+    // If transaction error occurs, retry without transaction
+    // This handles cases where transactions aren't supported (e.g., MongoDB Memory Server)
+    const isTransactionError = error.message?.includes('Transaction numbers') || 
+                               error.message?.includes('replica set') ||
+                               error.message?.includes('mongos') ||
+                               (error.name === 'MongoServerError' && error.message?.includes('Transaction'));
+    
+    if (isTransactionError) {
+      // Clean up session
+      if (session) {
+        await session.abortTransaction().catch(() => {});
+        await session.endSession().catch(() => {});
+        session = null;
+      }
+      
+      // Retry without transaction
+      const deleteResult = await Item.deleteOne({ _id: itemId });
+
+      if (deleteResult.deletedCount === 0) {
+        const error = new Error('Item not found');
+        error.statusCode = 404;
+        throw error;
+      }
+
+      // Delete file
+      let filesDeleted = 0;
+      if (filePath) {
+        try {
+          const fs = require('fs').promises;
+          const path = require('path');
+          const fullPath = filePath.startsWith('/') || filePath.startsWith('\\') 
+            ? filePath 
+            : path.join(process.cwd(), filePath);
+          
+          // Check if file exists before trying to delete
+          try {
+            await fs.access(fullPath);
+            // File exists, try to delete it
+            await fileService.deleteFile(filePath);
+            filesDeleted = 1;
+          } catch (accessError) {
+            // File doesn't exist, skip it (don't count)
+          }
+        } catch (fileError) {
+          // Log but don't fail
+          console.warn(`Failed to delete file ${filePath}:`, fileError.message);
+        }
+      }
+
+      return {
+        item_deleted: true,
+        files_deleted: filesDeleted
+      };
+    }
+    
+    // Rollback transaction on error (if transaction was used)
+    if (useTransaction && session) {
+      await session.abortTransaction().catch(() => {}); // Ignore abort errors
+    }
+    throw error;
+  } finally {
+    // End session if it was created
+    if (session) {
+      session.endSession().catch(() => {}); // Ignore session end errors
+    }
+  }
+}
+
 module.exports = {
   resetDatabase,
   getLatestOTP,
   seedItems,
   cleanupUserData,
-  cleanupUserItems
+  cleanupUserItems,
+  hardDeleteItem
 };
 
