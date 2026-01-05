@@ -31,7 +31,9 @@
     "form-data": "^4.0.5",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.5.0",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "swagger-ui-express": "^5.0.0",
+    "yaml": "^2.3.4"
   },
   "devDependencies": {
     "jest": "^29.7.0",

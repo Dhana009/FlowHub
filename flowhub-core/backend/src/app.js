@@ -8,6 +8,7 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const swaggerUi = require('swagger-ui-express');
 
 const authRoutes = require('./routes/authRoutes');
 const itemRoutes = require('./routes/itemRoutes');
@@ -17,6 +18,9 @@ const userRoutes = require('./routes/userRoutes');
 const internalRoutes = require('./routes/internalRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const path = require('path');
+
+// Load OpenAPI specification
+const openApiSpec = require('./swagger/openapi.json');
 
 const app = express();
 
@@ -47,6 +51,12 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Swagger UI for API documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'FlowHub API Documentation'
+}));
 
 // API routes
 app.use('/api/v1/auth', authRoutes);
