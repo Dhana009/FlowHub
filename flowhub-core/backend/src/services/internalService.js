@@ -14,6 +14,33 @@ const ActivityLog = require('../models/ActivityLog');
 const fileService = require('./fileService');
 
 /**
+ * Safely abort and end a MongoDB session
+ * Handles cases where transaction is in invalid state
+ * 
+ * @param {object} session - MongoDB session object
+ */
+async function safeEndSession(session) {
+  if (!session) return;
+  
+  try {
+    // Only abort if transaction is actually in progress
+    if (session.inTransaction && session.inTransaction()) {
+      await session.abortTransaction();
+    }
+  } catch (abortError) {
+    // Transaction might already be aborted or in invalid state
+    // This is expected in error recovery scenarios
+    console.warn('Transaction abort failed (expected in error recovery):', abortError.message);
+  }
+  
+  try {
+    await session.endSession();
+  } catch (endError) {
+    console.warn('Session end failed:', endError.message);
+  }
+}
+
+/**
  * Total Reset: Wipes all collections for a clean test start.
  */
 async function resetDatabase() {
@@ -219,17 +246,15 @@ async function cleanupUserData(userId, options = {}) {
     // If transaction error occurs, retry without transaction
     // This handles cases where transactions aren't supported (e.g., MongoDB Memory Server)
     const isTransactionError = error.message?.includes('Transaction numbers') || 
+                               error.message?.includes('does not match any in-progress transactions') ||
                                error.message?.includes('replica set') ||
                                error.message?.includes('mongos') ||
                                (error.name === 'MongoServerError' && error.message?.includes('Transaction'));
     
     if (isTransactionError) {
       // Clean up session
-      if (session) {
-        await session.abortTransaction().catch(() => {});
-        await session.endSession().catch(() => {});
-        session = null;
-      }
+      await safeEndSession(session);
+      session = null;
       
       // Retry without transaction (respecting the same flags)
       const retryDeletePromises = [
@@ -392,17 +417,15 @@ async function cleanupUserItems(userId) {
     // If transaction error occurs, retry without transaction
     // This handles cases where transactions aren't supported (e.g., MongoDB Memory Server)
     const isTransactionError = error.message?.includes('Transaction numbers') || 
+                               error.message?.includes('does not match any in-progress transactions') ||
                                error.message?.includes('replica set') ||
                                error.message?.includes('mongos') ||
                                (error.name === 'MongoServerError' && error.message?.includes('Transaction'));
     
     if (isTransactionError) {
       // Clean up session
-      if (session) {
-        await session.abortTransaction().catch(() => {});
-        await session.endSession().catch(() => {});
-        session = null;
-      }
+      await safeEndSession(session);
+      session = null;
       
       // Retry without transaction
       const itemsResult = await Item.deleteMany({ created_by: userId });
@@ -440,14 +463,13 @@ async function cleanupUserItems(userId) {
     
     // Rollback transaction on error (if transaction was used)
     if (useTransaction && session) {
-      await session.abortTransaction().catch(() => {}); // Ignore abort errors
+      await safeEndSession(session);
+      session = null;
     }
     throw error;
   } finally {
     // End session if it was created
-    if (session) {
-      session.endSession().catch(() => {}); // Ignore session end errors
-    }
+    await safeEndSession(session);
   }
 }
 
@@ -553,17 +575,15 @@ async function hardDeleteItem(itemId) {
     // If transaction error occurs, retry without transaction
     // This handles cases where transactions aren't supported (e.g., MongoDB Memory Server)
     const isTransactionError = error.message?.includes('Transaction numbers') || 
+                               error.message?.includes('does not match any in-progress transactions') ||
                                error.message?.includes('replica set') ||
                                error.message?.includes('mongos') ||
                                (error.name === 'MongoServerError' && error.message?.includes('Transaction'));
     
     if (isTransactionError) {
       // Clean up session
-      if (session) {
-        await session.abortTransaction().catch(() => {});
-        await session.endSession().catch(() => {});
-        session = null;
-      }
+      await safeEndSession(session);
+      session = null;
       
       // Retry without transaction
       const deleteResult = await Item.deleteOne({ _id: itemId });
@@ -607,14 +627,13 @@ async function hardDeleteItem(itemId) {
     
     // Rollback transaction on error (if transaction was used)
     if (useTransaction && session) {
-      await session.abortTransaction().catch(() => {}); // Ignore abort errors
+      await safeEndSession(session);
+      session = null;
     }
     throw error;
   } finally {
     // End session if it was created
-    if (session) {
-      session.endSession().catch(() => {}); // Ignore session end errors
-    }
+    await safeEndSession(session);
   }
 }
 
