@@ -2,7 +2,7 @@
 ## Answers to Test Failure Questions
 
 **Version:** 1.0  
-**Last Updated:** 2024-12-17  
+**Last Updated:** 2025-01-27  
 **Source:** Extracted directly from backend codebase (`flowhub-core/backend/`)
 
 This document answers specific questions about backend validation rules and behavior that affect Flow 3 test design.

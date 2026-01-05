@@ -1,9 +1,11 @@
 # System Contract Documentation
 ## Backend & Frontend Reference for Web Automation
 
-**Version:** 1.3  
-**Last Updated:** 2025-01-05  
+**Version:** 1.5  
+**Last Updated:** 2025-01-27  
 **Source:** Extracted directly from codebase (`flowhub-core/`)
+
+**Note:** For API automation testing, start with priority-based documents (P0, P1, P2). Feature-based documents provide detailed reference. For test data management, see [TEST_DATA_FACTORY_GUIDE.md](./TEST_DATA_FACTORY_GUIDE.md).
 
 This document captures the **complete system contract** extracted directly from the codebase.
 It defines backend APIs, authentication, authorization, data schemas, UI behavior, and test hooks.
@@ -15,7 +17,52 @@ This is the authoritative reference for automation framework design.
 
 ## Document Structure
 
-This documentation is organized by feature into separate files:
+This documentation is organized by **priority** (for testing) and **feature** (for detailed reference):
+
+### Priority-Based Documents (For API Automation Testing)
+
+### 📄 [P0-ENDPOINTS.md](./P0-ENDPOINTS.md) ⭐ **START HERE FOR TESTING**
+**Critical Business Endpoints - Must Test**
+- POST /auth/login
+- GET /auth/me (checkpoint)
+- POST /items (Create)
+- GET /items (List)
+- GET /items/:id (Get)
+- PUT /items/:id (Update)
+- DELETE /items/:id (Delete)
+
+**Includes:** Exact schemas, data types, validation rules, test cases (positive/negative/edge)
+
+### 📄 [P1-ENDPOINTS.md](./P1-ENDPOINTS.md)
+**Important Endpoints - Should Test**
+- POST /auth/refresh
+- POST /auth/signup
+- POST /auth/signup/request-otp
+- POST /auth/signup/verify-otp
+- POST /auth/forgot-password/reset
+- PATCH /items/:id/activate
+- POST /items/batch
+- GET /items/count
+- POST /items/check-exists
+
+**Includes:** Exact schemas, data types, validation rules, test cases
+
+### 📄 [P2-ENDPOINTS.md](./P2-ENDPOINTS.md)
+**Supporting/Automation Endpoints - Nice to Have**
+- POST /internal/reset
+- POST /internal/seed
+- GET /internal/otp
+- DELETE /internal/users/:userId/data
+- DELETE /internal/users/:userId/items
+- DELETE /internal/items/:id/permanent
+- GET /items/seed-status/:userId
+- GET /health
+
+**Includes:** Exact schemas, data types, validation rules, test cases
+
+---
+
+### Feature-Based Documents (Detailed Reference)
 
 ### 📄 [01-AUTHENTICATION.md](./01-AUTHENTICATION.md)
 **Complete Authentication APIs with Request/Response Schemas**
@@ -124,11 +171,55 @@ This documentation is organized by feature into separate files:
 - Environment-specific behavior
 - Implementation recommendations
 
+### 📄 [TEST_DATA_FACTORY_GUIDE.md](./TEST_DATA_FACTORY_GUIDE.md) ⭐ **NEW**
+**Test Data Factory Guide - Complete Setup & Cleanup**
+- Factory pattern implementation
+- UserFactory, ItemFactory, CleanupFactory
+- Pytest fixtures integration
+- Negative and edge case generators
+- Complete working examples
+- Best practices and troubleshooting
+- Ready-to-use Python modules
+
 ---
 
 ## Quick Reference
 
-### All Endpoints
+### Priority-Based Quick Reference
+
+**P0 (Critical):**
+- `POST /api/v1/auth/login` → [P0-ENDPOINTS.md](./P0-ENDPOINTS.md)
+- `GET /api/v1/auth/me` → [P0-ENDPOINTS.md](./P0-ENDPOINTS.md) ⭐ **Checkpoint**
+- `POST /api/v1/items` → [P0-ENDPOINTS.md](./P0-ENDPOINTS.md)
+- `GET /api/v1/items` → [P0-ENDPOINTS.md](./P0-ENDPOINTS.md)
+- `GET /api/v1/items/:id` → [P0-ENDPOINTS.md](./P0-ENDPOINTS.md)
+- `PUT /api/v1/items/:id` → [P0-ENDPOINTS.md](./P0-ENDPOINTS.md)
+- `DELETE /api/v1/items/:id` → [P0-ENDPOINTS.md](./P0-ENDPOINTS.md)
+
+**P1 (Important):**
+- `POST /api/v1/auth/refresh` → [P1-ENDPOINTS.md](./P1-ENDPOINTS.md)
+- `POST /api/v1/auth/signup` → [P1-ENDPOINTS.md](./P1-ENDPOINTS.md)
+- `POST /api/v1/auth/signup/request-otp` → [P1-ENDPOINTS.md](./P1-ENDPOINTS.md)
+- `POST /api/v1/auth/signup/verify-otp` → [P1-ENDPOINTS.md](./P1-ENDPOINTS.md)
+- `POST /api/v1/auth/forgot-password/reset` → [P1-ENDPOINTS.md](./P1-ENDPOINTS.md)
+- `PATCH /api/v1/items/:id/activate` → [P1-ENDPOINTS.md](./P1-ENDPOINTS.md)
+- `POST /api/v1/items/batch` → [P1-ENDPOINTS.md](./P1-ENDPOINTS.md)
+- `GET /api/v1/items/count` → [P1-ENDPOINTS.md](./P1-ENDPOINTS.md)
+- `POST /api/v1/items/check-exists` → [P1-ENDPOINTS.md](./P1-ENDPOINTS.md)
+
+**P2 (Supporting):**
+- `POST /api/v1/internal/reset` → [P2-ENDPOINTS.md](./P2-ENDPOINTS.md)
+- `POST /api/v1/internal/seed` → [P2-ENDPOINTS.md](./P2-ENDPOINTS.md)
+- `GET /api/v1/internal/otp` → [P2-ENDPOINTS.md](./P2-ENDPOINTS.md)
+- `DELETE /api/v1/internal/users/:userId/data` → [P2-ENDPOINTS.md](./P2-ENDPOINTS.md)
+- `DELETE /api/v1/internal/users/:userId/items` → [P2-ENDPOINTS.md](./P2-ENDPOINTS.md)
+- `DELETE /api/v1/internal/items/:id/permanent` → [P2-ENDPOINTS.md](./P2-ENDPOINTS.md)
+- `GET /api/v1/items/seed-status/:userId` → [P2-ENDPOINTS.md](./P2-ENDPOINTS.md)
+- `GET /health` → [P2-ENDPOINTS.md](./P2-ENDPOINTS.md)
+
+---
+
+### All Endpoints (Feature-Based Reference)
 
 **Authentication:**
 - `POST /api/v1/auth/login` → [01-AUTHENTICATION.md](./01-AUTHENTICATION.md)
@@ -149,16 +240,18 @@ This documentation is organized by feature into separate files:
 - `PUT /api/v1/items/:id` → [02-ITEMS.md](./02-ITEMS.md)
 - `DELETE /api/v1/items/:id` → [02-ITEMS.md](./02-ITEMS.md)
 - `PATCH /api/v1/items/:id/activate` → [02-ITEMS.md](./02-ITEMS.md)
-- `GET /api/v1/items/count` → [10-SEED-DATA-MANAGEMENT.md](../flowhub-core/docs/automation/SEED_DATA_MANAGEMENT.md) ⭐ **New**
-- `POST /api/v1/items/check-exists` → [10-SEED-DATA-MANAGEMENT.md](../flowhub-core/docs/automation/SEED_DATA_MANAGEMENT.md) ⭐ **New**
-- `POST /api/v1/items/batch` → [10-SEED-DATA-MANAGEMENT.md](../flowhub-core/docs/automation/SEED_DATA_MANAGEMENT.md) ⭐ **New**
-- `GET /api/v1/items/seed-status/:userId` → [10-SEED-DATA-MANAGEMENT.md](../flowhub-core/docs/automation/SEED_DATA_MANAGEMENT.md) ⭐ **New**
+- `POST /api/v1/items/batch` → [02-ITEMS.md](./02-ITEMS.md) ⭐ **Batch create**
+- `GET /api/v1/items/count` → [02-ITEMS.md](./02-ITEMS.md) ⭐ **Count items**
+- `POST /api/v1/items/check-exists` → [02-ITEMS.md](./02-ITEMS.md) ⭐ **Check existence**
+- `GET /api/v1/items/seed-status/:userId` → [02-ITEMS.md](./02-ITEMS.md) ⭐ **Seed status**
 
 **Internal/Automation:**
 - `POST /api/v1/internal/reset` → [03-INTERNAL.md](./03-INTERNAL.md)
 - `POST /api/v1/internal/seed` → [03-INTERNAL.md](./03-INTERNAL.md)
 - `GET /api/v1/internal/otp` → [03-INTERNAL.md](./03-INTERNAL.md)
 - `DELETE /api/v1/internal/users/:userId/data` → [03-INTERNAL.md](./03-INTERNAL.md) ⭐ **User data cleanup**
+- `DELETE /api/v1/internal/users/:userId/items` → [03-INTERNAL.md](./03-INTERNAL.md) ⭐ **User items cleanup**
+- `DELETE /api/v1/internal/items/:id/permanent` → [03-INTERNAL.md](./03-INTERNAL.md) ⭐ **Hard delete item**
 - `GET /health` → [03-INTERNAL.md](./03-INTERNAL.md)
 
 ---
@@ -208,9 +301,12 @@ All error responses follow this format:
 ✅ **Complete** - All information extracted from codebase  
 ✅ **Validated** - Cross-referenced with actual implementation  
 ✅ **No Assumptions** - Every detail confirmed from source code  
-✅ **Organized by Feature** - Separate files for easy navigation  
-✅ **Seed Data Management** - New optimized endpoints documented (2025-01-04)  
-✅ **User Data Cleanup** - `DELETE /api/v1/internal/users/:userId/data` endpoint implemented (2025-01-05)
+✅ **Organized by Priority** - P0/P1/P2 documents for testing focus  
+✅ **Organized by Feature** - Detailed reference documents  
+✅ **Seed Data Management** - Optimized endpoints documented (batch, count, check-exists, seed-status)  
+✅ **User Data Cleanup** - Complete cleanup endpoints (`/users/:userId/data`, `/users/:userId/items`, `/items/:id/permanent`)  
+✅ **API Testing Reference** - Priority-based documents with schemas and test cases  
+✅ **Last Updated** - 2025-01-27 (All endpoints verified against codebase)
 
 **Next Steps:**
 - Framework design begins only after this document is frozen

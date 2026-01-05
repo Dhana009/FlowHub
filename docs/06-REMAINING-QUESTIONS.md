@@ -2,7 +2,7 @@
 ## Answers to Framework Design Questions
 
 **Version:** 1.0  
-**Last Updated:** 2024-12-17  
+**Last Updated:** 2025-01-27  
 **Source:** Extracted directly from codebase (`flowhub-core/`)
 
 This document answers the 6 remaining questions that impact framework design decisions.

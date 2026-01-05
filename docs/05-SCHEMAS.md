@@ -1,7 +1,8 @@
 # Data Schemas
 ## Complete Field Definitions
 
-**Source:** Extracted from `flowhub-core/backend/src/models/Item.js`
+**Source:** Extracted from `flowhub-core/backend/src/models/Item.js`  
+**Last Updated:** 2025-01-27
 
 ---
 

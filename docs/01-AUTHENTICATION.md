@@ -2,7 +2,8 @@
 ## Complete Request/Response Schemas
 
 **Base Path:** `/api/v1/auth`  
-**Source:** Extracted from `flowhub-core/backend/src/controllers/authController.js`
+**Source:** Extracted from `flowhub-core/backend/src/controllers/authController.js`  
+**Last Updated:** 2025-01-27
 
 ---
 

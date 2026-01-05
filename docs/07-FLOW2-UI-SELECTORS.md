@@ -2,7 +2,7 @@
 ## Complete Locator Guide for Automation
 
 **Version:** 1.0  
-**Last Updated:** 2024-12-17  
+**Last Updated:** 2025-01-27  
 **Source:** Extracted directly from frontend codebase (`flowhub-core/frontend/`)
 
 This document provides all CSS selectors and `data-testid` attributes for the Create Item page, extracted directly from the frontend implementation.

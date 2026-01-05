@@ -2,7 +2,7 @@
 ## Complete Locator Guide for Web Automation
 
 **Version:** 1.0  
-**Last Updated:** 2024-12-17  
+**Last Updated:** 2025-01-27  
 **Source:** Extracted directly from frontend codebase (`flowhub-core/frontend/`) and backend APIs
 
 This document provides all CSS selectors, `data-testid` attributes, and backend API details for Flow 3 (Search & Discovery), extracted directly from the implementation.

@@ -3,7 +3,7 @@
 
 **Base Path:** `/api/v1/internal`  
 **Source:** Extracted from `flowhub-core/backend/src/controllers/internalController.js`  
-**Last Updated:** 2025-01-05
+**Last Updated:** 2025-01-27
 
 **⚠️ WARNING:** These endpoints are for automation/testing only. Require `x-internal-key` header.
 
@@ -243,6 +243,156 @@ const response = await fetch('/api/v1/internal/users/507f1f77bcf86cd799439011/da
 
 // Delete user data but preserve OTPs and activity logs
 const response = await fetch('/api/v1/internal/users/507f1f77bcf86cd799439011/data?include_otp=false&include_activity_logs=false', {
+  method: 'DELETE',
+  headers: {
+    'x-internal-key': 'flowhub-secret-automation-key-2025'
+  }
+});
+```
+
+### Allowed in Automation
+
+✅ Yes (with proper key)
+
+---
+
+## DELETE /api/v1/internal/users/:userId/items
+
+**Auth:** No (requires `x-internal-key` header)  
+**Purpose:** Hard delete only items for a specific user while preserving other data
+
+### Request Headers
+
+```
+x-internal-key: flowhub-secret-automation-key-2025
+```
+
+**Note:** Default key can be overridden via `INTERNAL_AUTOMATION_KEY` environment variable
+
+### Path Parameters
+
+- `userId` (String, required) - User ID (ObjectId format)
+
+### Request Example
+
+```http
+DELETE /api/v1/internal/users/507f1f77bcf86cd799439011/items
+x-internal-key: flowhub-secret-automation-key-2025
+```
+
+### Response (200)
+
+```json
+{
+  "status": "success",
+  "deleted": {
+    "items": 25,
+    "files": 8
+  },
+  "preserved": {
+    "user": true,
+    "bulk_jobs": true,
+    "activity_logs": true,
+    "otps": true
+  }
+}
+```
+
+### What Gets Deleted (Hard Delete)
+
+- ✅ **Items** - All items where `created_by = userId`
+- ✅ **Files** - Physical files associated with deleted items (from filesystem)
+
+### What Gets Preserved
+
+- ✅ **User Record** - User account remains intact in database
+- ✅ **BulkJobs** - All bulk jobs preserved
+- ✅ **ActivityLogs** - All activity logs preserved
+- ✅ **OTPs** - All OTPs preserved
+
+### Error Responses
+
+- **400:** Invalid `userId` format (not a valid ObjectId)
+- **401:** Invalid or missing `x-internal-key` header
+- **404:** User not found
+
+### Use Cases
+
+- **Selective Cleanup:** Remove only items without affecting other user data
+- **Test Data Management:** Clean up items for a specific user in shared environments
+- **Data Migration:** Remove old items before user migration
+
+### Allowed in Automation
+
+✅ Yes (with proper key)
+
+---
+
+## DELETE /api/v1/internal/items/:id/permanent
+
+**Auth:** No (requires `x-internal-key` header)  
+**Purpose:** Hard delete a single item by ID (permanent removal from database)
+
+### Request Headers
+
+```
+x-internal-key: flowhub-secret-automation-key-2025
+```
+
+**Note:** Default key can be overridden via `INTERNAL_AUTOMATION_KEY` environment variable
+
+### Path Parameters
+
+- `id` (String, required) - Item ID (ObjectId format)
+
+### Request Example
+
+```http
+DELETE /api/v1/internal/items/507f1f77bcf86cd799439011/permanent
+x-internal-key: flowhub-secret-automation-key-2025
+```
+
+### Response (200)
+
+```json
+{
+  "status": "success",
+  "message": "Item permanently deleted",
+  "deleted": {
+    "item": true,
+    "file": true
+  }
+}
+```
+
+### What Gets Deleted (Hard Delete)
+
+- ✅ **Item** - Item removed from MongoDB
+- ✅ **File** - Physical file deleted from filesystem (if item had a file)
+
+### Error Responses
+
+- **400:** Invalid `id` format (not a valid ObjectId)
+- **401:** Invalid or missing `x-internal-key` header
+- **404:** Item not found
+
+### Use Cases
+
+- **Permanent Cleanup:** Remove specific items permanently (bypasses soft delete)
+- **Test Data Cleanup:** Remove test items that were soft-deleted
+- **Data Correction:** Permanently remove incorrectly created items
+
+### Implementation Details
+
+- Uses MongoDB delete operation (hard delete)
+- Deletes file from filesystem (only counts files that actually existed)
+- No cascading deletes (related collections not affected)
+
+### Example Usage
+
+```javascript
+// Permanently delete a specific item
+const response = await fetch('/api/v1/internal/items/507f1f77bcf86cd799439011/permanent', {
   method: 'DELETE',
   headers: {
     'x-internal-key': 'flowhub-secret-automation-key-2025'

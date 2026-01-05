@@ -2,7 +2,8 @@
 ## Complete Request/Response Schemas
 
 **Base Path:** `/api/v1/items`  
-**Source:** Extracted from `flowhub-core/backend/src/controllers/itemController.js`
+**Source:** Extracted from `flowhub-core/backend/src/controllers/itemController.js`  
+**Last Updated:** 2025-01-27
 
 ---
 
@@ -417,6 +418,286 @@ None (itemId in URL)
   }
   ```
 - **500:** Internal server error
+
+---
+
+## POST /items/batch (Batch Create Items)
+
+**Auth:** Required  
+**Roles:** ADMIN, EDITOR  
+**Content-Type:** `application/json`  
+**Purpose:** Create multiple items in a single request (for seed data management)
+
+### Request
+
+```json
+{
+  "items": [
+    {
+      "name": "Test Item 1",
+      "description": "This is a test item description that meets the minimum length requirement of 10 characters.",
+      "item_type": "DIGITAL",
+      "price": 10.00,
+      "category": "Electronics",
+      "download_url": "https://example.com/file.zip",
+      "file_size": 1024,
+      "tags": ["seed", "v1.0"]
+    },
+    {
+      "name": "Test Item 2",
+      "description": "This is another test item description that meets the minimum length requirement of 10 characters.",
+      "item_type": "PHYSICAL",
+      "price": 20.00,
+      "category": "Electronics",
+      "weight": 1.0,
+      "dimensions": {
+        "length": 10.0,
+        "width": 5.0,
+        "height": 2.0
+      },
+      "tags": ["seed", "v1.0"]
+    }
+  ],
+  "skip_existing": true
+}
+```
+
+**Request Fields:**
+- `items` (Array, required, 1-50 items) - Array of item objects (same schema as POST /items)
+- `skip_existing` (Boolean, optional, default: false) - If true, skip items that already exist (idempotent)
+
+**Item Schema:** Same as POST /items (all required/conditional fields apply)
+
+### Response (200)
+
+```json
+{
+  "status": "success",
+  "created": 2,
+  "skipped": 0,
+  "failed": 0,
+  "results": [
+    {
+      "item": {
+        "_id": "507f1f77bcf86cd799439011",
+        "name": "Test Item 1",
+        "description": "...",
+        "item_type": "DIGITAL",
+        "price": 10.00,
+        "category": "Electronics",
+        "is_active": true,
+        "version": 1,
+        "created_by": "user_id",
+        "createdAt": "2024-12-17T10:30:00Z",
+        "updatedAt": "2024-12-17T10:30:00Z"
+      },
+      "status": "created"
+    },
+    {
+      "item": {
+        "_id": "507f1f77bcf86cd799439012",
+        "name": "Test Item 2",
+        "description": "...",
+        "item_type": "PHYSICAL",
+        "price": 20.00,
+        "category": "Electronics",
+        "is_active": true,
+        "version": 1,
+        "created_by": "user_id",
+        "createdAt": "2024-12-17T10:30:00Z",
+        "updatedAt": "2024-12-17T10:30:00Z"
+      },
+      "status": "created"
+    }
+  ],
+  "errors": []
+}
+```
+
+**Response Fields:**
+- `created` (Number) - Count of items successfully created
+- `skipped` (Number) - Count of items skipped (if `skip_existing: true` and item already exists)
+- `failed` (Number) - Count of items that failed to create
+- `results` (Array) - Array of result objects with `item` and `status` ("created" | "skipped" | "failed")
+- `errors` (Array) - Array of error objects for failed items
+
+### Error Responses
+
+- **400:** Missing `items` array or invalid format
+- **401:** Not authenticated
+- **403:** Insufficient role (not ADMIN or EDITOR)
+- **422:** 
+  - Array length > 50
+  - Validation errors for individual items
+- **409:** Duplicate item (only if `skip_existing: false`)
+
+**Note:** File uploads are NOT supported in batch endpoint. Use individual POST /items for file uploads.
+
+---
+
+## GET /items/count (Get Item Count)
+
+**Auth:** Required  
+**Roles:** ADMIN, EDITOR, VIEWER  
+**Purpose:** Get count of items without fetching item data (for performance)
+
+### Query Parameters
+
+- `search` (String, optional) - Searches `name` and `description` (case-insensitive, partial match)
+- `status` (Enum: `active` | `inactive`, optional) - Filters by `is_active`
+- `category` (String, optional) - Filters by normalized category
+
+### Response (200)
+
+```json
+{
+  "status": "success",
+  "count": 25,
+  "filters": {
+    "search": "laptop",
+    "status": "active",
+    "category": "Electronics"
+  }
+}
+```
+
+### RBAC Filtering
+
+- **ADMIN:** Counts all items (no `created_by` filter)
+- **VIEWER:** Counts all items (no `created_by` filter)
+- **EDITOR:** Counts only own items (`created_by = userId`)
+
+### Error Responses
+
+- **401:** Not authenticated
+- **422:** Invalid query parameters
+
+---
+
+## POST /items/check-exists (Check Item Existence)
+
+**Auth:** Required  
+**Roles:** ADMIN, EDITOR, VIEWER  
+**Content-Type:** `application/json`  
+**Purpose:** Batch check if multiple items exist by name and category
+
+### Request
+
+```json
+{
+  "items": [
+    {
+      "name": "Item One",
+      "category": "Electronics"
+    },
+    {
+      "name": "Item Two",
+      "category": "Books"
+    }
+  ]
+}
+```
+
+**Request Fields:**
+- `items` (Array, required, 1-100 items) - Array of objects with `name` and `category`
+
+### Response (200)
+
+```json
+{
+  "status": "success",
+  "results": [
+    {
+      "name": "Item One",
+      "category": "Electronics",
+      "exists": true,
+      "item_id": "507f1f77bcf86cd799439011"
+    },
+    {
+      "name": "Item Two",
+      "category": "Books",
+      "exists": false,
+      "item_id": null
+    }
+  ]
+}
+```
+
+**Matching Logic:**
+- Uses normalized name (case-insensitive, trimmed)
+- Uses normalized category (Title Case)
+- Only checks active items (`is_active: true`)
+
+### RBAC Filtering
+
+- **ADMIN:** Can check any user's items
+- **VIEWER:** Can check any user's items
+- **EDITOR:** Can only check their own items
+
+### Error Responses
+
+- **400:** Missing `items` array or invalid format
+- **401:** Not authenticated
+- **422:** 
+  - Array length > 100
+  - Missing `name` or `category` in item objects
+
+---
+
+## GET /items/seed-status/:userId (Get Seed Data Status)
+
+**Auth:** Required  
+**Roles:** ADMIN, EDITOR, VIEWER  
+**Purpose:** Check if user has all required seed items (for test data verification)
+
+### Path Parameters
+
+- `userId` (String, required) - User ID (ObjectId format)
+
+### Query Parameters
+
+- `seed_version` (String, optional) - Filter by seed version tag (e.g., "v1.0")
+
+### Response (200)
+
+```json
+{
+  "status": "success",
+  "seed_complete": true,
+  "total_items": 11,
+  "required_count": 11,
+  "missing_items": [],
+  "seed_version": null
+}
+```
+
+**Response Fields:**
+- `seed_complete` (Boolean) - True if user has required seed items
+- `total_items` (Number) - Count of seed items found (items with "seed" tag)
+- `required_count` (Number) - Required count (default: 11, or based on seed_version)
+- `missing_items` (Array) - Array of missing item names (if incomplete)
+- `seed_version` (String | null) - Seed version if specified in query
+
+**How it works:**
+1. Identifies seed items by `tags` field containing `"seed"`
+2. Optionally filters by version tag (e.g., `seed_version=v1.0` requires both `"seed"` and `"v1.0"` tags)
+3. Counts items matching criteria for the specified user
+4. Returns completion status (true if count >= required_count)
+
+**Performance:** Single database count query (fast even with 10,000+ items)
+
+### RBAC Filtering
+
+- **ADMIN:** Can check any user's seed status
+- **VIEWER:** Can check any user's seed status
+- **EDITOR:** Can only check their own seed status (userId must match authenticated user)
+
+### Error Responses
+
+- **400:** Invalid `userId` format
+- **401:** Not authenticated
+- **403:** EDITOR trying to check another user's seed status
+- **404:** User not found
 
 ---
 
