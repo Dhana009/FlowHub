@@ -35,7 +35,9 @@ Thumbs.db
 *.swp
 *.swo
 *~
-.cursor/debug.log
+.cursor/
+.claude/
+phaseb_c_planning/
 
 # Build outputs
 dist/
