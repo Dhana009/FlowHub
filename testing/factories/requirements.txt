@@ -1,0 +1,12 @@
+# Test Data Factory Requirements
+# Python 3.8+ required
+
+# Core dependencies
+requests>=2.31.0
+urllib3>=2.0.0
+
+# Testing framework (optional, for pytest fixtures)
+pytest>=7.4.0
+
+# Type hints support (optional, for better IDE support)
+typing-extensions>=4.8.0; python_version<"3.9"
